@@ -1,0 +1,3 @@
+input_dir: "example"
+blast_db: "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr"
+blast_hits: 50
