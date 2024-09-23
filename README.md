@@ -1,4 +1,4 @@
-# nngenetrees
+# nngenetree
 * Recruit best blastp hits of query sequences, build genetrees, infer nearest neighbors and tree stats
 
 ## How to run it
