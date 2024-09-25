@@ -1,5 +1,5 @@
 # nngenetree
-* Recruit best blastp hits of query sequences, build genetrees, infer nearest neighbors and tree stats
+* Recruit best blastp hits vs nr of query sequences, build genetrees, infer nearest neighbors and tree stats
 
 ## How to run it
 * Set path to blast nr dir that contains ncbi formatted blast db and also diamond formatted nr.dmnd
