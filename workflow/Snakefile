@@ -15,6 +15,7 @@ sample_order = list(samples.keys())
 # Define the base output directory
 OUTPUT_BASE_DIR = INPUT_DIR + "_nngenetree"
 
+
 rule all:
     input:
         "all_taxonomy_assignments_complete.txt",
@@ -46,22 +47,6 @@ rule process_blast_results:
         cut -f2 {input.blast_result} | sort -u > {output.unique_subjects}
         """
 
-# Rule to extract hits from the BLAST database
-rule extract_hits:
-    input:
-        unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
-    output:
-        sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extracted_hits.faa"),
-        error_log = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extract_hits_errors.log")
-    params:
-        blast_db = "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr"  # Update this path to your BLAST database
-    conda:
-        "envs/nngenetree.yml"
-    shell:
-        """
-        blastdbcmd -db {params.blast_db} -entry_batch {input.unique_subjects} > {output.sequences} 2> {output.error_log} || touch {output.sequences}
-        """
-
 rule assign_taxonomy:
     input:
         unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt"),
@@ -73,7 +58,8 @@ rule assign_taxonomy:
         "envs/nngenetree.yml"
     shell:
         """
-        python workflow/scripts/assign_bestblastp.py --input {input.unique_subjects} --output {output.taxonomy}
+        python workflow/scripts/assign_bestblastp.py --input {input.unique_subjects} --output {output.taxonomy} || echo "Taxonomy assignment failed" && touch {output.taxonomy}
+        # python workflow/scripts/assign_bestblastp.py --input {input.unique_subjects} --output {output.taxonomy}
         """
 
 rule all_taxonomy_assignments:
@@ -83,9 +69,44 @@ rule all_taxonomy_assignments:
         touch("all_taxonomy_assignments_complete.txt")
 
 
+rule check_blast_output:
+    input:
+        blast_result = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
+    output:
+        check = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done")
+    log:
+        log_file = protected(os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.log"))
+    conda:
+        "envs/nngenetree.yml"
+    shell:
+        """
+        python workflow/scripts/check_blast_output.py {input.blast_result} > {log.log_file} 2>&1 && touch {output.check}
+        """
+
+
+# Rule to extract hits from the BLAST database
+rule extract_hits:
+    input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
+        unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
+    output:
+        sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extracted_hits.faa"),
+        error_log = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extract_hits_errors.log")
+    params:
+        blast_db = "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr"  # Update this path to your BLAST database
+    conda:
+        "envs/nngenetree.yml"
+    shell:
+        """
+        # blastdbcmd -db {params.blast_db} -entry_batch {input.unique_subjects} > {output.sequences} 2> {output.error_log} || echo "Extraction failed" && touch {output.sequences}
+        blastdbcmd -db {params.blast_db} -entry_batch {input.unique_subjects} > {output.sequences} 2> {output.error_log} || touch {output.sequences}
+        """
+
+
 # Rule to combine query sequences with extracted hits
 rule combine_sequences:
     input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         query = lambda wildcards: samples[wildcards.sample],
         hits = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extracted_hits.faa")
     output:
@@ -98,6 +119,7 @@ rule combine_sequences:
 # Rule to align sequences for each sample
 rule align_sequences:
     input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         combined_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa")
     output:
         aligned_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "aligned_sequences.msa")
@@ -111,6 +133,7 @@ rule align_sequences:
 # Rule to trim alignments for each sample
 rule trim_alignment:
     input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         aligned_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "aligned_sequences.msa")
     output:
         trimmed_alignment = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "trimmed_alignment.msa")
@@ -118,12 +141,13 @@ rule trim_alignment:
         "envs/nngenetree.yml"
     shell:
         """
-        trimal -in {input.aligned_sequences} -out {output.trimmed_alignment} -gt 0.1
+        trimal -in {input.aligned_sequences} -out {output.trimmed_alignment} -gt 0.1 || echo "Trimming failed" && touch {output.trimmed_alignment}
+        # trimal -in {input.aligned_sequences} -out {output.trimmed_alignment} -gt 0.1
         """
 
-# Rule to build phylogenetic trees using IQ-TREE
 rule build_tree:
     input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         trimmed_alignment = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "trimmed_alignment.msa")
     output:
         treefile = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
@@ -134,11 +158,13 @@ rule build_tree:
         "envs/nngenetree.yml"
     shell:
         """
-        iqtree -s {input.trimmed_alignment} -m LG -fast -nt AUTO -pre {params.outprefix} -redo
+        iqtree -s {input.trimmed_alignment} -m LG -fast -nt AUTO -pre {params.outprefix} -redo || echo "Tree building failed" && touch {output.treefile}
+        # iqtree -s {input.trimmed_alignment} -m LG -fast -nt AUTO -pre {params.outprefix} -redo
         """
 
 rule decorate_tree:
     input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
         taxonomy = os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"),
         query = lambda wildcards: samples[wildcards.sample],
@@ -156,6 +182,7 @@ rule decorate_tree:
 
 rule calculate_tree_stats:
     input:
+        check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
         taxonomy = os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"),
         query = lambda wildcards: samples[wildcards.sample],
@@ -166,4 +193,3 @@ rule calculate_tree_stats:
         "envs/nngenetree.yml"
     shell:
         "python workflow/scripts/tree_stats.py {input.tree} {input.taxonomy} {input.query} {output}"
-
