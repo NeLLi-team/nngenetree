@@ -99,15 +99,19 @@ def decorate_tree(tree_file, taxonomy_file, query_file, tree_output_prefix, itol
 
 def create_itol_files(tree, taxonomy_dict, queries, output_prefix):
   try:
+      output_dir = output_prefix
+      print(f"{output_prefix}")
+      if not os.path.exists(output_dir):
+          os.makedirs(output_dir)
       # Labels file
-      with open(f"{output_prefix}_labels.txt", 'w') as f:
+      with open(os.path.join(output_dir, 'itol_labels.txt'), 'w') as f:
           f.write("LABELS\nSEPARATOR TAB\nDATA\n")
           for leaf in tree.iter_leaves():
               category = taxonomy_dict.get(leaf.name, "Other")
               f.write(f"{leaf.name}\t{category}\n")
 
       # Branch colors file
-      with open(f"{output_prefix}_branch_colors.txt", 'w') as f:
+      with open(os.path.join(output_dir, 'itol_branch_colors.txt'), 'w') as f:
           f.write("TREE_COLORS\nSEPARATOR TAB\nDATA\n")
           for node in tree.traverse():
               if not node.is_root():
@@ -115,7 +119,7 @@ def create_itol_files(tree, taxonomy_dict, queries, output_prefix):
                   f.write(f"{node.name}\tbranch\t{color}\tnormal\t1\n")
 
       # Circles for queries file
-      with open(f"{output_prefix}_query_circles.txt", 'w') as f:
+      with open(os.path.join(output_dir, 'itol_query_circles.txt'), 'w') as f:
           f.write("DATASET_SYMBOL\nSEPARATOR TAB\nDATASET_LABEL\tQuery sequences\nCOLOR\t#FF0000\nMAX_SIZE\t10\nSHOW_INTERNAL\t0\nDATA\n")
           for leaf in tree.iter_leaves():
               if leaf.name in queries:

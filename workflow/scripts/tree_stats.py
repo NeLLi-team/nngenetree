@@ -32,7 +32,7 @@ def calculate_tree_stats(tree_file, taxonomy_file, query_file, output_file):
 
   for query in queries:
       query_node = tree.search_nodes(name=query)[0]
-      
+         
       # 1. Nearest query neighbor
       other_queries = [node for node in tree.iter_leaves() if node.name in queries and node.name != query]
       other_queries.sort(key=lambda n: query_node.get_distance(n))
