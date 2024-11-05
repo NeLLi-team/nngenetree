@@ -5,6 +5,6 @@
 * Set path to blast nr dir that contains ncbi formatted blast db and also diamond formatted nr.dmnd
 * Activate conda env with snakemake
 ```
-snakemake --use-conda -j 16 --config input_dir=<dir with faa file(s)>
+snakemake --keep-going --use-conda -j 16 --config input_dir=<dir with faa file(s)>
 ```
 * Adjust config file to change n blastp hits
