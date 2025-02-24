@@ -1,3 +1,65 @@
 input_dir: "example"
 blast_db: "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr"
 blast_hits: 50
+
+resources:
+  run_diamond_blastp:
+    threads: 8
+    mem_mb: 16000
+    time: "8:00:00"
+
+  process_blast_results:
+    threads: 1
+    mem_mb: 2000
+    time: "1:00:00"
+
+  assign_taxonomy:
+    threads: 2
+    mem_mb: 4000
+    time: "2:00:00"
+
+  all_taxonomy_assignments:
+    threads: 1
+    mem_mb: 2000
+    time: "1:00:00"
+
+  check_blast_output:
+    threads: 1
+    mem_mb: 2000
+    time: "0:30:00"
+
+  extract_hits:
+    threads: 2
+    mem_mb: 4000
+    time: "2:00:00"
+
+  combine_sequences:
+    threads: 2
+    mem_mb: 2000
+    time: "1:00:00"
+
+  align_sequences:
+    threads: 4
+    mem_mb: 8000
+    time: "6:00:00"
+
+  trim_alignment:
+    threads: 4
+    mem_mb: 8000
+    time: "6:00:00"
+
+  build_tree:
+    threads: 8
+    mem_mb: 16000
+    time: "12:00:00"
+
+  decorate_tree:
+    threads: 2
+    mem_mb: 4000
+    time: "2:00:00"
+
+  calculate_tree_stats:
+    threads: 2
+    mem_mb: 4000
+    time: "2:00:00"
+
