@@ -39,18 +39,18 @@ resources:
     time: "1:00:00"
 
   align_sequences:
-    threads: 4
-    mem_mb: 8000
-    time: "6:00:00"
+    threads: 8
+    mem_mb: 16000
+    time: "8:00:00"
 
   trim_alignment:
     threads: 4
     mem_mb: 8000
-    time: "6:00:00"
+    time: "0:10:00"
 
   build_tree:
     threads: 8
-    mem_mb: 16000
+    mem_mb: 24000
     time: "12:00:00"
 
   decorate_tree:

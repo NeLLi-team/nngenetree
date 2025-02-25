@@ -246,7 +246,7 @@ rule build_tree:
     threads: get_res("build_tree", "threads")
     resources:
         mem_mb = get_res("build_tree", "mem_mb"),
-        time = get_res("build_tree", "time")
+        time   = get_res("build_tree", "time")
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         trimmed_alignment = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "trimmed_alignment.msa")
@@ -259,15 +259,22 @@ rule build_tree:
         "envs/nngenetree.yml"
     shell:
         """
-        iqtree \
-            -s {input.trimmed_alignment} \
-            -m LG -fast \
-            -nt {threads} \
-            -pre {params.outprefix} \
-            -redo \
-            || echo "Tree building failed" && touch {output.treefile}
-        """
+        mkdir -p $(dirname {output.treefile})
 
+        NUM_SEQ=$(grep -c '^>' {input.trimmed_alignment} || echo 0)
+        if [[ $NUM_SEQ -lt 3 ]]; then
+            echo "Fewer than 3 sequences -> skipping tree." > {output.treefile}
+            touch {output.iqtree_file}
+        else
+            iqtree \
+                -s {input.trimmed_alignment} \
+                -m LG -fast \
+                -nt {threads} \
+                -pre {params.outprefix} \
+                -redo \
+                || echo "Tree building failed" && touch {output.treefile}
+        fi
+        """
 ###################################
 # Rule: decorate_tree
 ###################################
