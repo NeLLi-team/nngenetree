@@ -3,13 +3,12 @@
 ##############################################
 import os
 import glob
-
-# Get absolute paths to Snakefile directory and scripts folder
-SNAKEFILE_DIR = os.path.dirname(os.path.realpath(__file__))
-SCRIPTS_DIR = os.path.join(SNAKEFILE_DIR, "scripts")
+# Get absolute paths to workflow directory and scripts folder
+WORKFLOW_DIR = workflow.basedir
+SCRIPTS_DIR = os.path.join(WORKFLOW_DIR, "scripts")
 
 # Configuration
-configfile: "workflow/config.txt"
+configfile: WORKFLOW_DIR + "config.txt"
 
 INPUT_DIR = config.get("input_dir", "example")
 BLAST_DB = config.get("blast_db", "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr")
@@ -121,7 +120,7 @@ rule assign_taxonomy:
         python {SCRIPTS_DIR}/assign_bestblastp.py \
             --input {input.unique_subjects} \
             --output {output.taxonomy} \
-            || echo "Taxonomy assignment failed" && touch {output.taxonomy}
+            || (echo "Taxonomy assignment failed" && touch {output.taxonomy})
         """
 
 ###################################
@@ -208,7 +207,8 @@ rule align_sequences:
     threads: get_res("align_sequences", "threads")
     resources:
         mem_mb = get_res("align_sequences", "mem_mb"),
-        time = get_res("align_sequences", "time")
+        time = get_res("align_sequences", "time"),
+        disk_mb =  get_res("align_sequences", "disk_mb")
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         combined_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa")
