@@ -1,0 +1,4 @@
+.snakemake
+*_nngenetree
+log
+example_nngenetree_completion.log

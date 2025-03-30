@@ -7,12 +7,18 @@ import glob
 WORKFLOW_DIR = workflow.basedir
 SCRIPTS_DIR = os.path.join(WORKFLOW_DIR, "scripts")
 
+# Set pipeline version
+VERSION = "0.9.0"
+
 # Configuration
-configfile: WORKFLOW_DIR + "config.txt"
+configfile: WORKFLOW_DIR + "/config.txt"
 
 INPUT_DIR = config.get("input_dir", "example")
 BLAST_DB = config.get("blast_db", "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr")
 BLAST_HITS = config.get("blast_hits", 50)
+CLOSEST_NEIGHBORS = config.get("closest_neighbors", 10)  # Number of closest neighbors to extract per query
+QUERY_FILTER = config.get("query_filter", "")  # Optional comma-separated list of query prefixes to filter by
+ITOL_TAX_LEVEL = config.get("itol_tax_level", "class")  # Taxonomy level for iTOL visualization, default to class
 
 # Check for a valid input directory
 if not isinstance(INPUT_DIR, str) or not INPUT_DIR:
@@ -36,12 +42,16 @@ sample_order = list(samples.keys())
 OUTPUT_BASE_DIR = INPUT_DIR + "_nngenetree"
 
 # Mark certain rules as local only
-localrules: process_blast_results, all_taxonomy_assignments, check_blast_output, \
-            trim_alignment, combine_sequences, decorate_tree, calculate_tree_stats
+localrules: process_blast_results, check_blast_output, 
+            trim_alignment, combine_sequences, decorate_tree, calculate_tree_stats, 
+            extract_closest_neighbors, assign_taxonomy, all
+
+# Set the onstart handler to print a message
+onstart:
+    print("Starting workflow with --rerun-triggers mtime")
 
 rule all:
     input:
-        "all_taxonomy_assignments_complete.txt",
         expand(
             os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "decorated_tree.png"),
             sample=samples.keys()
@@ -50,6 +60,151 @@ rule all:
             os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "tree_stats.tab"),
             sample=samples.keys()
         )
+    output:
+        completion_file = f"{INPUT_DIR}_nngenetree_completion.log"
+    shell:
+        """
+        echo "🌟 NNGeneTree Pipeline Run Summary 🌟" > {output.completion_file}
+        echo "===========================================" >> {output.completion_file}
+        echo "📋 Pipeline Version: {VERSION}" >> {output.completion_file}
+        echo "📅 Completed at: $(date '+%Y-%m-%d %H:%M:%S')" >> {output.completion_file}
+        echo "📁 Input Directory: {INPUT_DIR}" >> {output.completion_file}
+        echo "🔍 BLAST Database: {BLAST_DB}" >> {output.completion_file}
+        echo "💾 Output Directory: {OUTPUT_BASE_DIR}" >> {output.completion_file}
+        echo "===========================================" >> {output.completion_file}
+        
+        echo -e "\\n📊 Sample Analysis Summary:" >> {output.completion_file}
+        echo "===========================================" >> {output.completion_file}
+        
+        # Process each sample
+        for sample in $(ls -d {OUTPUT_BASE_DIR}/*/); do
+            sample_name=$(basename $sample)
+            echo -e "\\n🧬 Sample: $sample_name" >> {output.completion_file}
+            
+            # Count BLAST hits
+            if [ -f "{OUTPUT_BASE_DIR}/blast_results/$sample_name.m8" ]; then
+                hit_count=$(wc -l < {OUTPUT_BASE_DIR}/blast_results/$sample_name.m8)
+                echo "   - BLAST Hits: $hit_count" >> {output.completion_file}
+            else
+                echo "   - BLAST Hits: 0 (no hits found)" >> {output.completion_file}
+            fi
+            
+            # Check if tree was generated
+            if [ -f "{OUTPUT_BASE_DIR}/$sample_name/tree/final_tree.treefile" ]; then
+                echo "   - 🌳 Tree Generated: Yes" >> {output.completion_file}
+                
+                # Count unique taxa at different levels from taxonomy file
+                if [ -f "{OUTPUT_BASE_DIR}/$sample_name/closest_neighbors_with_taxonomy.csv" ]; then
+                    echo "   - 🔬 Taxonomy Analysis:" >> {output.completion_file}
+                    
+                    # Create a temporary file with taxonomy fields
+                    csv_file="{OUTPUT_BASE_DIR}/$sample_name/closest_neighbors_with_taxonomy.csv"
+                    cut -d',' -f5 "$csv_file" | tail -n +2 | sort > taxonomy_temp.txt
+                    
+                    # Extract domains (1st field in taxonomy string)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            echo "$line" | cut -d';' -f1
+                        else
+                            echo "Unknown"
+                        fi
+                    done | sort | uniq > domains.txt
+                    domain_count=$(wc -l < domains.txt)
+                    
+                    # Extract higher groups (2nd field)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            IFS=';' read -ra fields <<< "$line"
+                            if [[ ${{#fields[@]}} -ge 2 && ! -z "${{fields[1]}}" ]]; then
+                                echo "${{fields[1]}}"
+                            fi
+                        fi
+                    done | sort | uniq > higher_groups.txt
+                    [ -s higher_groups.txt ] && higher_group_count=$(wc -l < higher_groups.txt) || higher_group_count=0
+                    
+                    # Extract phyla (3rd field)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            IFS=';' read -ra fields <<< "$line"
+                            if [[ ${{#fields[@]}} -ge 3 && ! -z "${{fields[2]}}" ]]; then
+                                echo "${{fields[2]}}"
+                            fi
+                        fi
+                    done | sort | uniq > phyla.txt
+                    [ -s phyla.txt ] && phylum_count=$(wc -l < phyla.txt) || phylum_count=0
+                    
+                    # Extract classes (4th field)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            IFS=';' read -ra fields <<< "$line"
+                            if [[ ${{#fields[@]}} -ge 4 && ! -z "${{fields[3]}}" ]]; then
+                                echo "${{fields[3]}}"
+                            fi
+                        fi
+                    done | sort | uniq > classes.txt
+                    [ -s classes.txt ] && class_count=$(wc -l < classes.txt) || class_count=0
+                    
+                    # Extract orders (5th field)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            IFS=';' read -ra fields <<< "$line"
+                            if [[ ${{#fields[@]}} -ge 5 && ! -z "${{fields[4]}}" ]]; then
+                                echo "${{fields[4]}}"
+                            fi
+                        fi
+                    done | sort | uniq > orders.txt
+                    [ -s orders.txt ] && order_count=$(wc -l < orders.txt) || order_count=0
+                    
+                    # Extract families (6th field)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            IFS=';' read -ra fields <<< "$line"
+                            if [[ ${{#fields[@]}} -ge 6 && ! -z "${{fields[5]}}" ]]; then
+                                echo "${{fields[5]}}"
+                            fi
+                        fi
+                    done | sort | uniq > families.txt
+                    [ -s families.txt ] && family_count=$(wc -l < families.txt) || family_count=0
+                    
+                    # Extract genera (7th field)
+                    cat taxonomy_temp.txt | while read line; do
+                        if [[ "$line" == *";"* ]]; then
+                            IFS=';' read -ra fields <<< "$line"
+                            if [[ ${{#fields[@]}} -ge 7 && ! -z "${{fields[6]}}" ]]; then
+                                echo "${{fields[6]}}"
+                            fi
+                        fi
+                    done | sort | uniq > genera.txt
+                    [ -s genera.txt ] && genus_count=$(wc -l < genera.txt) || genus_count=0
+                    
+                    # Output the counts with actual taxonomic names
+                    echo "     • Domains: $domain_count: $(cat domains.txt | tr '\n' ', ' | sed 's/, *$//')" >> {output.completion_file}
+                    echo "     • Higher Groups: $higher_group_count: $(cat higher_groups.txt 2>/dev/null | tr '\n' ', ' | sed 's/, *$//' || echo "")" >> {output.completion_file}
+                    echo "     • Phyla: $phylum_count: $(cat phyla.txt 2>/dev/null | tr '\n' ', ' | sed 's/, *$//' || echo "")" >> {output.completion_file}
+                    echo "     • Classes: $class_count: $(cat classes.txt 2>/dev/null | tr '\n' ', ' | sed 's/, *$//' || echo "")" >> {output.completion_file}
+                    echo "     • Orders: $order_count: $(cat orders.txt 2>/dev/null | tr '\n' ', ' | sed 's/, *$//' || echo "")" >> {output.completion_file}
+                    echo "     • Families: $family_count: $(cat families.txt 2>/dev/null | tr '\n' ', ' | sed 's/, *$//' || echo "")" >> {output.completion_file}
+                    echo "     • Genera: $genus_count: $(cat genera.txt 2>/dev/null | tr '\n' ', ' | sed 's/, *$//' || echo "")" >> {output.completion_file}
+                    
+                    # Print top 3 most common domains
+                    echo "     • Top domains:" >> {output.completion_file}
+                    cat domains.txt | sort | uniq -c | sort -nr | head -3 | while read count domain; do
+                        echo "       - $domain: $count" >> {output.completion_file}
+                    done
+                    
+                    # Clean up temporary files
+                    rm -f taxonomy_temp.txt domains.txt higher_groups.txt phyla.txt classes.txt orders.txt families.txt genera.txt
+                else
+                    echo "   - 🔬 Taxonomy Analysis: Not available" >> {output.completion_file}
+                fi
+            else
+                echo "   - 🌳 Tree Generated: No" >> {output.completion_file}
+            fi
+        done
+        
+        echo -e "\\n✅ All processes completed successfully ✅" >> {output.completion_file}
+        echo "===========================================" >> {output.completion_file}
+        """
 
 ###################################
 # Rule: run_diamond_blastp
@@ -70,6 +225,7 @@ rule run_diamond_blastp:
         "envs/nngenetree.yml"
     shell:
         """
+        mkdir -p $(dirname {output.blast_result})
         diamond blastp \
             -d {params.blast_db}.dmnd \
             -q {input.query} \
@@ -83,76 +239,37 @@ rule run_diamond_blastp:
 # Rule: process_blast_results
 ###################################
 rule process_blast_results:
-    threads: get_res("process_blast_results", "threads")
+    threads: 1
     input:
         blast_result = os.path.join(OUTPUT_BASE_DIR, "blast_results", "{sample}.m8")
     output:
         unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
     shell:
         """
+        mkdir -p $(dirname {output.unique_subjects})
         cut -f2 {input.blast_result} | sort -u > {output.unique_subjects}
         """
-
-###################################
-# Rule: assign_taxonomy
-###################################
-rule assign_taxonomy:
-    threads: get_res("assign_taxonomy", "threads")
-    resources:
-        mem_mb = get_res("assign_taxonomy", "mem_mb"),
-        time = get_res("assign_taxonomy", "time")
-    input:
-        unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt"),
-        previous = lambda wildcards: (
-            os.path.join(
-                OUTPUT_BASE_DIR,
-                sample_order[sample_order.index(wildcards.sample) - 1],
-                "taxonomy_assignments.txt"
-            )
-            if sample_order.index(wildcards.sample) > 0 else []
-        )
-    output:
-        taxonomy = protected(os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"))
-    conda:
-        "envs/nngenetree.yml"
-    shell:
-        """
-        python {SCRIPTS_DIR}/assign_bestblastp.py \
-            --input {input.unique_subjects} \
-            --output {output.taxonomy} \
-            || (echo "Taxonomy assignment failed" && touch {output.taxonomy})
-        """
-
-###################################
-# Rule: all_taxonomy_assignments
-###################################
-rule all_taxonomy_assignments:
-    threads: get_res("all_taxonomy_assignments", "threads")
-    input:
-        expand(os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"), sample=samples.keys())
-    output:
-        touch("all_taxonomy_assignments_complete.txt")
 
 ###################################
 # Rule: check_blast_output
 ###################################
 rule check_blast_output:
-    threads: get_res("check_blast_output", "threads")
+    threads: 1
     input:
         blast_result = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
     output:
         check = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done")
     log:
-        log_file = protected(os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.log"))
+        log_file = os.path.join("log", "{sample}_check_blast_output.log")
     conda:
         "envs/nngenetree.yml"
     shell:
         """
-        # Run the script with an absolute path, ignore any error code using '|| true'
-        python {SCRIPTS_DIR}/check_blast_output.py {input.blast_result} \
-            > {log.log_file} 2>&1 || true
-        
-        # We still produce the .done file so downstream rules don't fail
+        mkdir -p $(dirname {output.check})
+        mkdir -p log
+        # Run the script with an absolute path
+        python {SCRIPTS_DIR}/check_blast_output.py {input.blast_result} > {log.log_file} 2>&1
+        # Create the done file only if the check succeeds
         touch {output.check}
         """
 
@@ -169,25 +286,25 @@ rule extract_hits:
         unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
     output:
         sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extracted_hits.faa"),
-        error_log = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extract_hits_errors.log")
+        error_log = os.path.join("log", "{sample}_extract_hits_errors.log")
     params:
         blast_db = BLAST_DB
     conda:
         "envs/nngenetree.yml"
     shell:
         """
+        mkdir -p log
         blastdbcmd \
             -db {params.blast_db} \
             -entry_batch {input.unique_subjects} \
-            > {output.sequences} 2> {output.error_log} \
-            || touch {output.sequences}
+            > {output.sequences} 2> {output.error_log} || true
         """
 
 ###################################
 # Rule: combine_sequences
 ###################################
 rule combine_sequences:
-    threads: get_res("combine_sequences", "threads")
+    threads: 1
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         query = lambda wildcards: samples[wildcards.sample],
@@ -197,7 +314,7 @@ rule combine_sequences:
     shell:
         """
         cat {input.query} <(awk '{{ if ($0 ~ />/) {{print $1}} else {{print $0}} }}' {input.hits}) \
-            > {output}
+            > {output.combined_sequences}
         """
 
 ###################################
@@ -208,7 +325,7 @@ rule align_sequences:
     resources:
         mem_mb = get_res("align_sequences", "mem_mb"),
         time = get_res("align_sequences", "time"),
-        disk_mb =  get_res("align_sequences", "disk_mb")
+        disk_mb = get_res("align_sequences", "disk_mb")
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         combined_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa")
@@ -218,6 +335,7 @@ rule align_sequences:
         "envs/nngenetree.yml"
     shell:
         """
+        mkdir -p $(dirname {output.aligned_sequences})
         mafft --thread {threads} {input.combined_sequences} > {output.aligned_sequences}
         """
 
@@ -225,7 +343,7 @@ rule align_sequences:
 # Rule: trim_alignment
 ###################################
 rule trim_alignment:
-    threads: get_res("trim_alignment", "threads")
+    threads: 1
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         aligned_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "aligned_sequences.msa")
@@ -235,8 +353,7 @@ rule trim_alignment:
         "envs/nngenetree.yml"
     shell:
         """
-        trimal -in {input.aligned_sequences} -out {output.trimmed_alignment} -gt 0.1 \
-            || echo "Trimming failed" && touch {output.trimmed_alignment}
+        trimal -in {input.aligned_sequences} -out {output.trimmed_alignment} -gt 0.1
         """
 
 ###################################
@@ -246,76 +363,133 @@ rule build_tree:
     threads: get_res("build_tree", "threads")
     resources:
         mem_mb = get_res("build_tree", "mem_mb"),
-        time   = get_res("build_tree", "time")
+        time = get_res("build_tree", "time")
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
-        trimmed_alignment = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "trimmed_alignment.msa")
+        alignment = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "trimmed_alignment.msa")
     output:
-        treefile = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
-        iqtree_file = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.iqtree")
+        tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
+        log = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.iqtree")
     params:
-        outprefix = lambda wildcards, output: output.treefile[:-9]  # remove '.treefile'
+        outdir = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree"),
+        prefix = "final_tree"
     conda:
         "envs/nngenetree.yml"
     shell:
         """
-        mkdir -p $(dirname {output.treefile})
-
-        NUM_SEQ=$(grep -c '^>' {input.trimmed_alignment} || echo 0)
-        if [[ $NUM_SEQ -lt 3 ]]; then
-            echo "Fewer than 3 sequences -> skipping tree." > {output.treefile}
-            touch {output.iqtree_file}
-        else
-            iqtree \
-                -s {input.trimmed_alignment} \
-                -m LG -fast \
-                -nt {threads} \
-                -pre {params.outprefix} \
-                -redo \
-                || echo "Tree building failed" && touch {output.treefile}
-        fi
+        mkdir -p {params.outdir}
+        iqtree -s {input.alignment} -m LG+G4 -T {threads} --prefix {params.outdir}/{params.prefix}
         """
+
+###################################
+# Rule: extract_closest_neighbors
+###################################
+rule extract_closest_neighbors:
+    threads: 1
+    input:
+        query = lambda wildcards: samples[wildcards.sample],
+        unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt"),
+        tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile")
+    output:
+        closest_neighbors = os.path.join(OUTPUT_BASE_DIR, "{sample}", "closest_neighbors.csv")
+    params:
+        num_neighbors = CLOSEST_NEIGHBORS,
+        query_filter_cmd = lambda wildcards: f"--query_filter {QUERY_FILTER}" if QUERY_FILTER else ""
+    conda:
+        "envs/nngenetree.yml"
+    shell:
+        """
+        # Extract closest neighbors from the tree
+        python {SCRIPTS_DIR}/extract_closest_neighbors.py \
+            --tree {input.tree} \
+            --query {input.query} \
+            --subjects {input.unique_subjects} \
+            --output {output.closest_neighbors} \
+            --num_neighbors {params.num_neighbors} \
+            {params.query_filter_cmd}
+        """
+        
+###################################
+# Rule: assign_taxonomy
+###################################
+rule assign_taxonomy:
+    threads: 1
+    input:
+        closest_neighbors = os.path.join(OUTPUT_BASE_DIR, "{sample}", "closest_neighbors.csv"),
+        previous = lambda wildcards: (
+            os.path.join(
+                OUTPUT_BASE_DIR,
+                sample_order[sample_order.index(wildcards.sample) - 1],
+                "taxonomy_assignments.txt"
+            )
+            if sample_order.index(wildcards.sample) > 0 else []
+        )
+    output:
+        taxonomy = os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"),
+        updated_csv = os.path.join(OUTPUT_BASE_DIR, "{sample}", "closest_neighbors_with_taxonomy.csv")
+    log:
+        os.path.join("log", "{sample}_taxonomy_assignment.log")
+    conda:
+        "envs/nngenetree.yml"
+    shell:
+        """
+        # Create log directory if it doesn't exist
+        mkdir -p log
+        
+        # Process the closest_neighbors.csv file to add taxonomy directly
+        python {SCRIPTS_DIR}/parse_closest_neighbors.py \
+            -d {OUTPUT_BASE_DIR}/{wildcards.sample} \
+            -o {output.taxonomy} \
+            > {log} 2>&1
+        """
+
 ###################################
 # Rule: decorate_tree
 ###################################
 rule decorate_tree:
-    threads: get_res("decorate_tree", "threads")
+    threads: 1
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
         taxonomy = os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"),
-        query = lambda wildcards: samples[wildcards.sample],
-        taxdone = "all_taxonomy_assignments_complete.txt"
+        taxonomy_csv = os.path.join(OUTPUT_BASE_DIR, "{sample}", "closest_neighbors_with_taxonomy.csv"),
+        query = lambda wildcards: samples[wildcards.sample]
     output:
         decorated_tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "decorated_tree.png")
     params:
-        itol_labels = os.path.join(OUTPUT_BASE_DIR, "{sample}", "itol")
+        itol_labels = os.path.join(OUTPUT_BASE_DIR, "{sample}", "itol"),
+        tax_level = ITOL_TAX_LEVEL
+    log:
+        os.path.join("log", "{sample}_decorate_tree.log")
     conda:
         "envs/nngenetree.yml"
     shell:
         """
         python {SCRIPTS_DIR}/decorate_tree.py \
-            {input.tree} {input.taxonomy} {input.query} {output.decorated_tree} {params.itol_labels}
+            {input.tree} {input.taxonomy} {input.query} {output.decorated_tree} {params.itol_labels} {params.tax_level} \
+            2> {log}
         """
 
 ###################################
 # Rule: calculate_tree_stats
 ###################################
 rule calculate_tree_stats:
-    threads: get_res("calculate_tree_stats", "threads")
+    threads: 1
     input:
         check_blast = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done"),
         tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile"),
         taxonomy = os.path.join(OUTPUT_BASE_DIR, "{sample}", "taxonomy_assignments.txt"),
-        query = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa"),
-        taxdone = "all_taxonomy_assignments_complete.txt"
+        taxonomy_csv = os.path.join(OUTPUT_BASE_DIR, "{sample}", "closest_neighbors_with_taxonomy.csv"),
+        query = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa")
     output:
         os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "tree_stats.tab")
+    log:
+        os.path.join("log", "{sample}_tree_stats.log")
     conda:
         "envs/nngenetree.yml"
     shell:
         """
         python {SCRIPTS_DIR}/tree_stats.py \
-            {input.tree} {input.taxonomy} {input.query} {output}
+            {input.tree} {input.taxonomy} {input.query} {output} \
+            2> {log}
         """
-

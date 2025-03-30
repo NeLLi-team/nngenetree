@@ -1,65 +1,57 @@
-input_dir: "example"
-blast_db: "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr"
+# Input directory containing .faa files
+input_dir: example
+
+# BLAST database path (without extension)
+blast_db: /clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr
+
+# Number of BLAST hits to retrieve
 blast_hits: 50
 
+# Number of closest neighbors to extract per query
+closest_neighbors: 3
+
+# Query filter prefix (comma-separated list of prefixes to filter queries by)
+query_filter: IMGM3300034524_BIN255,IMGM3300036879_BIN290,IMGM3300046733_BIN463
+
+# iTOL visualization taxonomy level (domain, phylum, class, order, family, genus)
+itol_tax_level: class
+
+# Resource configuration
 resources:
   run_diamond_blastp:
-    threads: 8
-    mem_mb: 16000
-    time: "8:00:00"
-
+    threads: 16
+    mem_mb: 32000
+    time: "4:00:00"
   process_blast_results:
     threads: 1
-    mem_mb: 2000
-    time: "1:00:00"
-
+  extract_closest_neighbors:
+    threads: 1
   assign_taxonomy:
-    threads: 2
+    threads: 1
     mem_mb: 4000
-    time: "2:00:00"
-
+    time: "1:00:00"
   all_taxonomy_assignments:
     threads: 1
-    mem_mb: 2000
-    time: "1:00:00"
-
   check_blast_output:
     threads: 1
-    mem_mb: 2000
-    time: "0:30:00"
-
   extract_hits:
-    threads: 2
-    mem_mb: 4000
+    threads: 4
+    mem_mb: 8000
     time: "2:00:00"
-
   combine_sequences:
-    threads: 2
-    mem_mb: 2000
-    time: "1:00:00"
-
+    threads: 1
   align_sequences:
     threads: 8
     mem_mb: 16000
-    time: "8:00:00"
-
+    time: "2:00:00"
+    disk_mb: 10000
   trim_alignment:
-    threads: 4
-    mem_mb: 8000
-    time: "0:10:00"
-
+    threads: 1
   build_tree:
     threads: 8
-    mem_mb: 24000
-    time: "12:00:00"
-
+    mem_mb: 16000
+    time: "2:00:00"
   decorate_tree:
-    threads: 2
-    mem_mb: 4000
-    time: "2:00:00"
-
+    threads: 1
   calculate_tree_stats:
-    threads: 2
-    mem_mb: 4000
-    time: "2:00:00"
-
+    threads: 1

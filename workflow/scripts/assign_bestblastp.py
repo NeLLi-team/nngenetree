@@ -2,6 +2,7 @@ import typer
 from Bio import Entrez
 import os
 from tqdm import tqdm
+import csv  # Import the csv module
 
 app = typer.Typer()
 
@@ -20,13 +21,25 @@ def fetch_taxonomy(accession: str) -> str:
 
 @app.command()
 def main(
-  input: str = typer.Option(..., "--input", "-i", help="Input file path containing list of IDs."),
+  input: str = typer.Option(..., "--input", "-i", help="Input CSV file path containing subject IDs."),
   output: str = typer.Option(..., "--output", "-o", help="Output file path.")
 ):
   try:
-      # Read unique accession numbers from the input file
-      with open(input, 'r') as infile:
-          unique_accessions = set(line.strip() for line in infile if line.strip())
+      # Read unique accession numbers from the input CSV file
+      unique_accessions = set()
+      with open(input, 'r', newline='') as infile:
+          # Check file extension
+          if input.endswith('.csv'):
+              # Read as CSV
+              reader = csv.DictReader(infile)
+              for row in reader:
+                  if 'subject' in row and row['subject'].strip():
+                      unique_accessions.add(row['subject'].strip())
+          else:
+              # Fallback to old format (plain text)
+              for line in infile:
+                  if line.strip():
+                      unique_accessions.add(line.strip())
 
       total_ids = len(unique_accessions)
       typer.echo(f"Number of unique subject IDs: {total_ids}")
