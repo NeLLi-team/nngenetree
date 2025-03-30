@@ -1,5 +1,20 @@
 #!/bin/bash
 
+# NNGeneTree Pipeline Runner
+# --------------------------
+# Usage:
+#   1. Run on SLURM cluster (default):
+#      bash run.sh <input_directory>
+#      Example: bash run.sh example
+#
+#   2. Run locally with all available cores:
+#      bash run.sh <input_directory> true
+#      Example: bash run.sh example true
+#
+# Note: When running locally, Snakemake 7.26.0 or newer is required.
+# If using an older version, you'll need to specify a number manually
+# by changing "--cores all" to a specific number like "--cores 4".
+
 # Set default input directory to example if not provided
 queries_faa="${1:-example}"
 local_run="${2:-false}"
