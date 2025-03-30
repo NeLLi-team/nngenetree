@@ -17,8 +17,8 @@ start_date=$(date '+%Y-%m-%d %H:%M:%S')
 echo "Started at: ${start_date}"
 
 # Activate conda environment for Snakemake
-source /clusterfs/jgi/groups/science/homes/fschulz/miniconda3/etc/profile.d/conda.sh
-conda activate snk
+#source /clusterfs/jgi/groups/science/homes/fschulz/miniconda3/etc/profile.d/conda.sh
+#conda activate snk
 
 # Common Snakemake parameters
 common_params="--use-conda \
