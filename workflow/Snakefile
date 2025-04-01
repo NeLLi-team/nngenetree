@@ -13,7 +13,7 @@ VERSION = "0.9.0"
 # Configuration
 configfile: WORKFLOW_DIR + "/config.txt"
 
-INPUT_DIR = config.get("input_dir", "example")
+INPUT_DIR = config.get("input_dir", "/data/input")
 BLAST_DB = config.get("blast_db", "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr")
 BLAST_HITS = config.get("blast_hits", 50)
 CLOSEST_NEIGHBORS = config.get("closest_neighbors", 10)  # Number of closest neighbors to extract per query
@@ -39,7 +39,7 @@ samples = {os.path.splitext(os.path.basename(f))[0]: f for f in INPUT_FILES}
 sample_order = list(samples.keys())
 
 # Define the base output directory
-OUTPUT_BASE_DIR = INPUT_DIR + "_nngenetree"
+OUTPUT_BASE_DIR = "/data/output"
 
 # Mark certain rules as local only
 localrules: process_blast_results, check_blast_output, 

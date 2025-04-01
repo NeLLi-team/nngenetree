@@ -1,0 +1,20 @@
+name: nngenetree
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - python=3.9
+  - snakemake=7.32.4
+  - biopython=1.81
+  - blast=2.14.1
+  - diamond=2.1.8
+  - mafft=7.520
+  - trimal=1.4.1
+  - iqtree=2.2.2.7
+  - ete3=3.1.3
+  - pandas=2.1.1
+  - numpy=1.25.2
+  - pip
+  - pip:
+    - rich==13.6.0 
