@@ -138,7 +138,7 @@ The container is available from multiple locations:
 
 Container versions follow semantic versioning (MAJOR.MINOR.PATCH):
 - Latest stable: `nngenetree:latest`
-- Version specific: `nngenetree:1.0.0`
+- Version specific: `nngenetree:0.9.0`
 - Development: `nngenetree:dev`
 
 ## 🚀 Usage

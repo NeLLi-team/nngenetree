@@ -9,7 +9,7 @@ From: condaforge/mambaforge:latest
     singularity run --bind /path/to/input:/data/input,/path/to/output:/data/output nngenetree.sif
 
 %labels
-    Maintainer Frederik Boulund
+    Maintainer Frederik Schulz
     Version 0.9.0
     Description NNGeneTree pipeline for gene tree analysis
 
