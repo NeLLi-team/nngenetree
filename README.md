@@ -66,7 +66,7 @@ The easiest way to run NNGeneTree is using our pre-built Singularity container:
 
 ```bash
 # Pull the container from Sylabs Cloud
-singularity pull library://username/nngenetree/nngenetree:latest
+singularity push IMG.sif library://fschjgi/nngenetree/nngenetree:latest
 
 # Run the pipeline using the container
 ./run_container.sh -i example -b /path/to/blast/db -l -p 8
