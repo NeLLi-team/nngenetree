@@ -7,5 +7,6 @@ example_nngenetree_completion.log
 *_output
 old
 
-# Claude Code project instructions
+# Claude Code files (local development only)
 CLAUDE.md
+.claude/
