@@ -70,24 +70,25 @@ pixi install
 
 That's it! All dependencies are now installed and managed by Pixi.
 
-### Install as System Command (Optional)
+### Execution from Anywhere (Optional)
 
-To run `nngenetree` from anywhere on your system:
+To run `nngenetree` from any directory on your system, create a symbolic link to your PATH:
 
 ```bash
-# Option 1: Link to ~/bin (user-level)
+# From the nngenetree repository directory
 mkdir -p ~/bin
 ln -s $(pwd)/run_nextflow.sh ~/bin/nngenetree
-# Add ~/bin to PATH if not already (add to ~/.bashrc or ~/.zshrc)
-export PATH="$HOME/bin:$PATH"
 
-# Option 2: Link to /usr/local/bin (system-wide, requires sudo)
-sudo ln -s $(pwd)/run_nextflow.sh /usr/local/bin/nngenetree
+# Add ~/bin to PATH (if not already in your PATH)
+echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
+source ~/.bashrc
 
 # Test it works from any directory
 cd /tmp
 nngenetree test
 ```
+
+Once installed, you can run `nngenetree` from any location and it will automatically find the repository and handle paths correctly.
 
 ## 🚀 Usage
 
