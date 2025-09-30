@@ -3,10 +3,10 @@
 # This configuration uses a small test database for rapid pipeline testing
 
 # Input directory containing .faa files
-input_dir: example
+input_dir: test
 
 # Test BLAST database path (small, fast for testing)
-blast_db: test_db/test_reference
+blast_db: test/db/test_reference
 
 # Number of BLAST hits to retrieve per query
 blast_hits: 5
