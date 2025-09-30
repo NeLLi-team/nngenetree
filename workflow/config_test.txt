@@ -1,0 +1,41 @@
+# NNGeneTree Test Configuration File
+# -------------------------
+# This configuration uses a small test database for rapid pipeline testing
+
+# Input directory containing .faa files
+input_dir: example
+
+# Test BLAST database path (small, fast for testing)
+blast_db: test_db/test_reference
+
+# Number of BLAST hits to retrieve per query
+blast_hits: 5
+
+# Number of closest neighbors to extract per query
+closest_neighbors: 5
+
+# Query selector (comma-separated list of query prefixes to select specific queries)
+query_filter:
+
+# Taxonomy level for iTOL visualization (domain, phylum, class, order, family, genus, species)
+itol_tax_level: class
+
+# Resource configuration for each rule (reduced for testing)
+resources:
+  run_diamond_blastp:
+    threads: 4
+    mem_mb: 8000
+    time: "0:10:00"
+  align_sequences:
+    threads: 4
+    mem_mb: 8000
+    time: "0:10:00"
+    disk_mb: 10000
+  build_tree:
+    threads: 4
+    mem_mb: 8000
+    time: "0:10:00"
+  extract_hits:
+    threads: 1
+    mem_mb: 4000
+    time: "0:05:00"

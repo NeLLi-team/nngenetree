@@ -2,14 +2,10 @@
 # -------------------------
 
 # Input directory containing .faa files
-input_dir: /clusterfs/jgi/scratch/science/mgs/nelli/frederik/projects/01gvmagsV2/04cglr-sting/nngenetree/hype_og
+input_dir: example
 
 # BLAST database path
-# Options:
-#   - test_db/test_reference (small, fast, 10 sequences - for testing)
-#   - /clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr (full nr database - for production)
 blast_db: /clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr
-# blast_db: test_db/test_reference  # Uncomment for fast test runs
 
 # Number of BLAST hits to retrieve per query
 blast_hits: 20

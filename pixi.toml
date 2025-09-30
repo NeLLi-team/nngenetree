@@ -1,0 +1,85 @@
+[project]
+name = "nngenetree"
+version = "1.0.0"
+description = "NNGeneTree - Phylogenetic analysis and taxonomic classification pipeline"
+authors = ["NNGeneTree Development Team"]
+channels = ["conda-forge", "bioconda"]
+platforms = ["linux-64"]
+
+[dependencies]
+# Core bioinformatics tools
+diamond = ">=2.1.0,<3"
+blast = ">=2.15.0,<3"
+mafft = ">=7.0,<8"
+trimal = ">=1.5.0,<2"
+iqtree = ">=2.3.0,<3"
+
+# Python and scientific stack
+python = ">=3.11,<3.13"
+biopython = ">=1.80,<2"
+ete3 = ">=3.1.0,<4"
+pandas = ">=2.0,<3"
+scipy = ">=1.10,<2"
+numpy = ">=1.24,<2"
+lxml = ">=5.0,<6"
+
+# Python utilities
+tqdm = ">=4.65,<5"
+requests = ">=2.28,<3"
+click = ">=8.0,<9"
+
+# Snakemake (for pipeline execution)
+snakemake = ">=7.0,<8"
+snakemake-minimal = ">=7.0,<8"
+
+# System tools
+wget = ">=1.20,<2"
+gawk = ">=5.0,<6"
+
+# NCBI tools
+entrez-direct = ">=16.2"
+ncbi-datasets-cli = "*"
+
+# Orthology analysis
+orthofinder = "==2.5.5"
+matplotlib = ">=3.10.6,<4"
+seaborn = ">=0.13.2,<0.14"
+
+[tasks]
+# Main pipeline execution tasks
+run-local = { cmd = "snakemake --cores 16 --config input_dir=$1", description = "Run the pipeline locally on a specific directory" }
+run-slurm = { cmd = "bash run_slurm.sh", description = "Run the pipeline on SLURM cluster with a specific directory" }
+
+# Pipeline control tasks
+dry-run = { cmd = "snakemake --dry-run --config input_dir=test", description = "Show what would be executed without running" }
+clean = { cmd = "rm -rf test_nngenetree log/*.out log/*.err", description = "Clean test output and log files" }
+clean-all = { cmd = "rm -rf *_nngenetree log", description = "Clean all output directories and logs" }
+
+# Test tasks with small database (uses test_nngenetree output dir for consistency)
+test-fast = { cmd = "snakemake --configfile workflow/config_test.txt --cores 4", description = "Fast test run with small test database" }
+test-dry = { cmd = "snakemake --configfile workflow/config_test.txt --cores 4 --dry-run", description = "Dry run with test configuration" }
+
+# Development tasks
+lint = { cmd = "python -m flake8 workflow/scripts/ --max-line-length 120", description = "Lint Python scripts" }
+format = { cmd = "python -m black workflow/scripts/", description = "Format Python scripts with Black" }
+
+# Setup and installation
+install = { cmd = "pixi install", description = "Install all dependencies" }
+shell = { cmd = "pixi shell", description = "Start a shell with the environment activated" }
+
+# Note: For custom analysis and OrthoFinder preprocessing, run scripts directly:
+# - python workflow/scripts/parse_closest_neighbors.py -d <dir> -o <output>
+# - python workflow/scripts/orthofinder_preprocess.py --genomes_faa_dir <dir> --output_dir <dir> [--target <filter>]
+
+[feature.dev.dependencies]
+flake8 = "*"
+black = "*"
+pytest = "*"
+ipython = "*"
+
+[feature.dev.tasks]
+dev-shell = { cmd = "pixi shell --feature dev", description = "Start development shell with extra tools" }
+
+[environments]
+default = { features = [], solve-group = "default" }
+dev = { features = ["dev"], solve-group = "default" }

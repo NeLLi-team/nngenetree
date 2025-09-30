@@ -4,16 +4,18 @@
 # --------------------------
 # Usage:
 #   1. Run on SLURM cluster (default):
+#      pixi run run-slurm-dir <input_directory>
+#      OR
 #      bash run.sh <input_directory>
 #      Example: bash run.sh example
 #
 #   2. Run locally with all available cores:
+#      pixi run run-dir <input_directory>
+#      OR
 #      bash run.sh <input_directory> true
 #      Example: bash run.sh example true
 #
-# Note: When running locally, Snakemake 7.26.0 or newer is required.
-# If using an older version, you'll need to specify a number manually
-# by changing "--cores all" to a specific number like "--cores 4".
+# Prerequisites: Install dependencies with `pixi install`
 
 # Set default input directory to example if not provided
 queries_faa="${1:-example}"
@@ -31,27 +33,29 @@ start_time=$(date +%s)
 start_date=$(date '+%Y-%m-%d %H:%M:%S')
 echo "Started at: ${start_date}"
 
-# Activate conda environment for Snakemake
-#source /clusterfs/jgi/groups/science/homes/fschulz/miniconda3/etc/profile.d/conda.sh
-#conda activate snk
+# Check if pixi is available
+if ! command -v pixi &> /dev/null; then
+    echo "Error: pixi is not installed or not in PATH"
+    echo "Please install pixi from https://pixi.sh/"
+    exit 1
+fi
 
-# Common Snakemake parameters
-common_params="--use-conda \
-    --rerun-incomplete \
+# Common Snakemake parameters (removed --use-conda)
+common_params="--rerun-incomplete \
     --rerun-triggers mtime \
-    --config input_dir=\"${queries_faa}\""
+    --config input_dir=${queries_faa}"
 
 # Check if local execution is requested
 if [ "${local_run}" = "true" ]; then
-    # Run Snakemake locally with all cores
-    echo "Running pipeline locally with all available cores"
-    snakemake \
+    # Run Snakemake locally with 16 cores using pixi
+    echo "Running pipeline locally with 16 cores (using pixi)"
+    pixi run snakemake \
         ${common_params} \
-        --cores all
+        --cores 16
 else
-    # Run Snakemake with SLURM
-    echo "Running pipeline on SLURM cluster"
-    snakemake \
+    # Run Snakemake with SLURM using pixi
+    echo "Running pipeline on SLURM cluster (using pixi)"
+    pixi run snakemake \
         ${common_params} \
         --jobs 256 \
         --local-cores 8 \

@@ -1,6 +1,6 @@
 # 🧬 NNGeneTree 🌳
 
-[![Version](https://img.shields.io/badge/version-0.9.0-blue.svg)](https://github.com/username/nngenetree) [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/NeLLi-team/nngenetree) [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 **NNGeneTree** is a Snakemake pipeline for phylogenetic analysis and taxonomic classification of protein sequences. It builds gene trees and finds the nearest neighbors of query sequences in the phylogenetic context, assigning taxonomy information for comprehensive evolutionary analysis.
 
@@ -32,250 +32,312 @@ NNGeneTree leverages the power of phylogenetic analysis to place query protein s
 - 🎨 Visually appealing tree visualizations with taxonomic annotations
 - 📝 Detailed logging and reports for each analysis step
 - 🖥️ Supports both local execution and HPC cluster deployment (SLURM)
-- 🧩 Modular design with conda environment management
+- 🧩 Modular design with Pixi package management
 
 ## 📦 Requirements
 
-- [Conda/Miniconda](https://docs.conda.io/en/latest/miniconda.html) (for environment management)
-- [Snakemake](https://snakemake.readthedocs.io/en/stable/) (v7.0+ recommended)
+- [Pixi](https://pixi.sh/) (for environment and dependency management)
 - [SLURM](https://slurm.schedmd.com/) (optional, for cluster execution)
 
-The pipeline will automatically set up all required tools through conda environments:
-- DIAMOND (for fast protein similarity search)
-- BLAST+ (for sequence extraction)
-- MAFFT (for multiple sequence alignment)
-- TrimAl (for alignment trimming)
-- IQ-TREE (for phylogenetic tree construction)
-- ETE Toolkit (for tree manipulation)
-- BioPython (for sequence analysis and taxonomy retrieval)
+The pipeline automatically manages all required tools through Pixi:
+- Snakemake (workflow management)
+- DIAMOND (fast protein similarity search)
+- BLAST+ (sequence extraction)
+- MAFFT (multiple sequence alignment)
+- TrimAl (alignment trimming)
+- IQ-TREE (phylogenetic tree construction)
+- ETE Toolkit (tree manipulation)
+- BioPython (sequence analysis and taxonomy retrieval)
 
 ## 💻 Installation
 
-No installation is required. Simply clone the repository and ensure you have Conda and Snakemake available:
+### Quick Start
 
 ```bash
+# Clone the repository
 git clone https://github.com/username/nngenetree.git
 cd nngenetree
+
+# Install Pixi (if not already installed)
+curl -fsSL https://pixi.sh/install.sh | bash
+
+# Install all dependencies
+pixi install
 ```
 
-## 🐋 Container Usage
-
-### Using Pre-built Container
-
-The easiest way to run NNGeneTree is using our pre-built Singularity container:
-
-```bash
-# Pull the container from Sylabs Cloud
-singularity push IMG.sif library://fschjgi/nngenetree/nngenetree:latest
-
-# Run the pipeline using the container
-./run_container.sh -i example -b /path/to/blast/db -l -p 8
-```
-
-Options for run_container.sh:
-- `-i INPUT_DIR`: Directory containing input .faa files (default: example)
-- `-o OUTPUT_DIR`: Directory to save output (default: INPUT_DIR_nngenetree)
-- `-b BLAST_DB`: Path to BLAST database
-- `-c CONFIG_FILE`: Path to custom config file (optional)
-- `-p PROCESSES`: Number of processes to use (default: 8)
-- `-l`: Run locally instead of using SLURM
-
-### Building Container from Source
-
-If you need to modify the container, you can build it from source:
-
-```bash
-# Copy necessary scripts
-cp workflow/scripts/update_paths.py container/scripts/
-
-# Build the container
-sudo singularity build nngenetree.sif container/Singularity.def
-```
-
-During the build process, the container will:
-1. Set up the conda environment with all dependencies
-2. Create necessary directory structure
-3. Update paths for container compatibility
-4. Verify critical components
-
-### Container Organization
-
-The container-related files are organized as follows:
-
-```
-container/
-├── Singularity.def       # Container definition file
-├── environment.yml       # Conda environment specification
-└── scripts/             # Container setup scripts
-    ├── setup.sh         # Container initialization script
-    └── update_paths.py  # Script to update paths for container compatibility
-```
-
-The `update_paths.py` script automatically adjusts the pipeline's paths during container build to ensure compatibility with the container's directory structure:
-- Maps input directory to `/data/input`
-- Maps output directory to `/data/output`
-- Updates BLAST database paths accordingly
-
-### Container Storage
-
-The container is available from multiple locations:
-1. **Sylabs Cloud (Primary)**: `library://username/nngenetree/nngenetree:latest`
-   - Recommended for most users
-   - Includes container signing and verification
-   - Direct integration with Singularity commands
-
-2. **Zenodo (Archive)**:
-   - DOI: [10.5281/zenodo.XXXXXX]()
-   - Long-term preservation
-   - Includes container and build files
-   - Recommended for reproducible research citations
-
-3. **BioContainers**:
-   - Available through `biocontainers/nngenetree`
-   - Integration with bioinformatics workflows
-
-### Container Versioning
-
-Container versions follow semantic versioning (MAJOR.MINOR.PATCH):
-- Latest stable: `nngenetree:latest`
-- Version specific: `nngenetree:0.9.0`
-- Development: `nngenetree:dev`
+That's it! All dependencies are now installed and managed by Pixi.
 
 ## 🚀 Usage
 
-### Basic Usage
-
-1. Place your protein sequences (in FASTA format with `.faa` extension) in a directory (e.g., `example/`).
-
-2. Run the pipeline:
+### Running with Pixi (Recommended)
 
 ```bash
-bash run.sh example
+# Fast test with small test database (completes in minutes)
+# Output: test_nngenetree/
+pixi run test-fast
+
+# Run on your own data locally (16 cores)
+# Output: mydata_nngenetree/
+snakemake --cores 16 --config input_dir=mydata
+
+# Run with custom config file
+snakemake --cores 16 --configfile my_config.txt
+
+# Override specific config parameters
+snakemake --cores 16 --config input_dir=mydata blast_hits=50 closest_neighbors=20
+
+# Dry run (preview what will be executed)
+pixi run dry-run
+
+# Clean output files
+pixi run clean
 ```
 
-This will execute the pipeline on the SLURM cluster using the files in the `example/` directory.
-
-### Local Execution
-
-To run the pipeline locally without a SLURM cluster:
+### Traditional Shell Script
 
 ```bash
-bash run.sh example true
+# Local execution (16 cores)
+bash run.sh <input_directory> true
+
+# SLURM cluster execution
+bash run.sh <input_directory>
 ```
 
-### Custom Configuration
+## 🧬 OrthoFinder Integration
 
-Modify the configuration in `workflow/config.txt` to set parameters such as:
-- `input_dir`: Directory containing your FASTA files
-- `blast_db`: Path to your BLAST database
-- `blast_hits`: Number of BLAST hits to retrieve
-- `closest_neighbors`: Number of closest neighbors to extract per query
-- `query_filter`: Optional comma-separated list of query prefixes to filter by
+### Overview
+
+NNGeneTree now includes integrated support for OrthoFinder preprocessing, allowing you to:
+1. Identify orthogroups across multiple genomes
+2. Filter orthogroups by target protein IDs
+3. Automatically create FASTA files for each orthogroup
+4. Process orthogroups through the NNGeneTree pipeline
+
+### Prerequisites
+
+Your genome files must follow this header format:
+```
+>{genome_id}|{contig_id}_{protein_id}
+```
+
+Example:
+```
+>Hype|contig_50_1
+MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTA...
+```
+
+### Running OrthoFinder Preprocessing
+
+```bash
+# Activate the pixi environment first
+pixi shell
+
+# Basic usage - process all orthogroups
+python workflow/scripts/orthofinder_preprocess.py \
+  --genomes_faa_dir path/to/genomes \
+  --output_dir path/to/output
+
+# Filter orthogroups containing specific proteins
+python workflow/scripts/orthofinder_preprocess.py \
+  --genomes_faa_dir path/to/genomes \
+  --output_dir path/to/output \
+  --target "target_substring"
+```
+
+### Complete Workflow Example
+
+Process genomes through OrthoFinder and then run NNGeneTree:
+
+```bash
+# Step 1: Run OrthoFinder preprocessing
+pixi run python workflow/scripts/orthofinder_preprocess.py \
+  --genomes_faa_dir my_genomes/ \
+  --output_dir my_orthogroups/ \
+  --target "species1|contig_10_" \
+  --threads 16
+
+# Step 2: Run NNGeneTree on the orthogroups
+pixi run run-local my_orthogroups/
+```
+
+### OrthoFinder Script Options
+
+The preprocessing script (`workflow/scripts/orthofinder_preprocess.py`) supports:
+- `--genomes_faa_dir`: Directory containing genome FASTA files
+- `--output_dir`: Output directory for orthogroup FASTA files
+- `--target`: Comma-separated list of substrings to filter orthogroups
+- `--orthofinder_results`: Path to existing OrthoFinder results (skip re-running)
+- `--threads`: Number of threads for OrthoFinder (default: 16)
+- `--force`: Overwrite existing output directory
 
 ## 🔄 Pipeline Workflow
 
 ```
-INPUT FASTA FILES
+INPUT FASTA FILES (.faa)
       │
       ▼
-┌─────────────┐
-│ DIAMOND     │ Fast protein similarity search against reference database
-│ BLASTP      │
-└─────┬───────┘
+┌─────────────────────┐
+│ DIAMOND BLASTP      │ Fast protein similarity search (default: 20 hits per query)
+└─────┬───────────────┘
       │
       ▼
-┌─────────────┐
-│ EXTRACT     │ Retrieve sequences of BLAST hits from the database
-│ SEQUENCES   │
-└─────┬───────┘
+┌─────────────────────┐
+│ PROCESS & VALIDATE  │ Extract unique subjects and validate output
+└─────┬───────────────┘
       │
       ▼
-┌─────────────┐
-│ SEQUENCE    │ Align query sequences with hits using MAFFT
-│ ALIGNMENT   │
-└─────┬───────┘
+┌─────────────────────┐
+│ EXTRACT SEQUENCES   │ Retrieve hit sequences using blastdbcmd
+└─────┬───────────────┘
       │
       ▼
-┌─────────────┐
-│ TRIM        │ Remove poorly aligned regions with TrimAl
-│ ALIGNMENT   │
-└─────┬───────┘
+┌─────────────────────┐
+│ COMBINE SEQUENCES   │ Merge query + hit sequences
+└─────┬───────────────┘
       │
       ▼
-┌─────────────┐
-│ BUILD       │ Construct phylogenetic tree using IQ-TREE
-│ TREE        │
-└─────┬───────┘
+┌─────────────────────┐
+│ MAFFT ALIGNMENT     │ Multiple sequence alignment
+└─────┬───────────────┘
       │
       ▼
-┌─────────────┐
-│ EXTRACT     │ Identify the closest neighbors in the phylogenetic tree
-│ NEIGHBORS   │
-└─────┬───────┘
+┌─────────────────────┐
+│ TRIMAL TRIMMING     │ Remove poorly aligned regions (gap threshold: 0.1)
+└─────┬───────────────┘
       │
       ▼
-┌─────────────┐
-│ ASSIGN      │ Retrieve taxonomy information from NCBI
-│ TAXONOMY    │
-└─────┬───────┘
+┌─────────────────────┐
+│ IQTREE              │ Build phylogenetic tree (LG+G4 model)
+└─────┬───────────────┘
+      │
+      ├──────────────────────┐
+      ▼                      ▼
+┌─────────────────┐   ┌──────────────────────┐
+│ EXTRACT         │   │ PHYLOGENETIC         │ Extract top 5 neighbors for
+│ NEIGHBORS       │   │ PLACEMENT            │ specific query prefixes
+│ (N=10 default)  │   └──────────────────────┘
+└─────┬───────────┘
       │
       ▼
-┌─────────────┐
-│ VISUALIZE   │ Generate decorated trees and statistics
-│ TREES       │
-└─────┬───────┘
+┌─────────────────────┐
+│ ASSIGN TAXONOMY     │ Fetch NCBI taxonomy via Entrez API
+└─────┬───────────────┘
+      │
+      ▼
+┌─────────────────────┐
+│ DECORATE TREE       │ Generate PNG visualizations with taxonomy
+└─────┬───────────────┘
+      │
+      ▼
+┌─────────────────────┐
+│ TREE STATISTICS     │ Calculate phylogenetic statistics
+└─────┬───────────────┘
+      │
+      ▼
+┌─────────────────────┐
+│ COMBINE RESULTS     │ Aggregate placement results to JSON
+└─────────────────────┘
       │
       ▼
   FINAL OUTPUT
+  (Trees, taxonomy, statistics, placement results)
 ```
 
 ## 📂 Output Description
 
 Results are saved in a directory named `<input_dir>_nngenetree/`. For each input FASTA file, you'll find:
 
-- `blast_results/`: DIAMOND BLAST search results (tabular format)
 - `<sample>/`: Sample-specific results including:
+  - `blast_results.m8`: DIAMOND BLAST tabular output
+  - `unique_subjects.txt`: List of unique hit accessions
+  - `check_blast_output.done`: Validation checkpoint
   - `extracted_hits.faa`: Sequences of BLAST hits
   - `combined_sequences.faa`: Combined query and hit sequences
-  - `unique_subjects.txt`: List of unique hit accessions
   - `aln/`: Alignment files
-    - `aligned_sequences.msa`: Raw alignment
-    - `trimmed_alignment.msa`: Trimmed alignment
+    - `aligned_sequences.msa`: Raw MAFFT alignment
+    - `trimmed_alignment.msa`: TrimAl-trimmed alignment
   - `tree/`: Phylogenetic trees
     - `final_tree.treefile`: Newick tree file
+    - `final_tree.iqtree`: IQ-TREE log file
     - `decorated_tree.png`: Visualization with taxonomy
     - `tree_stats.tab`: Statistics about the tree
-  - `closest_neighbors.csv`: List of closest neighbors with distances
-  - `closest_neighbors_with_taxonomy.csv`: Enhanced CSV with taxonomy information
+  - `closest_neighbors.csv`: Closest neighbors with phylogenetic distances
+  - `closest_neighbors_with_taxonomy.csv`: Enhanced CSV with NCBI taxonomy
   - `taxonomy_assignments.txt`: Taxonomy information in tabular format
+  - `placement_results.json`: Phylogenetic placement results with detailed neighbor info
+  - `placement_results.csv`: Placement results in CSV format
   - `itol/`: Files for Interactive Tree of Life visualization
+    - `itol_labels.txt`
+    - `itol_colors.txt`
+    - `itol_ranges.txt`
+- `combined_placement_results.json`: Aggregated placement results across all samples
 
 A comprehensive log file (`<input_dir>_nngenetree_completion.log`) contains a summary of the analysis, including:
 - Pipeline version and runtime information
 - BLAST hit counts for each sample
-- Taxonomy distribution statistics
+- Taxonomy distribution statistics (domains, phyla, classes, orders, families, genera)
 - Tree generation status
 
 ## ⚙️ Configuration
 
-The pipeline can be configured through the `workflow/config.txt` file:
+### Config File Options
 
+Edit `workflow/config.txt` or create your own config file:
+
+**Basic Parameters:**
 - `input_dir`: Directory containing input .faa files
-- `blast_db`: Path to BLAST database
+- `output_dir`: Override default output directory (default: `{input_dir}_nngenetree`)
+- `blast_db`: Path to BLAST/DIAMOND database (default: `/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr`)
 - `blast_hits`: Number of BLAST hits to retrieve per query (default: 20)
 - `closest_neighbors`: Number of closest neighbors to extract per query (default: 10)
-- `query_filter`: Optional comma-separated list of query prefixes to select specific queries. If not set, all queries will be analyzed.
-- `itol_tax_level`: Taxonomy level for iTOL visualization (domain, phylum, class, order, family, genus, species)
+- `query_filter`: Optional comma-separated list of query prefixes to filter
+- `itol_tax_level`: Taxonomy level for iTOL visualization (default: class; options: domain, phylum, class, order, family, genus, species)
 
-Resource configuration is also available for each step:
+**Resource Configuration:**
 ```yaml
 resources:
   run_diamond_blastp:
-    threads: 16
+    threads: 8
     mem_mb: 32000
-    time: "4:00:00"
+    time: "2:00:00"
   # Additional resource configurations...
 ```
+
+### Override Configuration
+
+You can override any config parameter on the command line:
+
+```bash
+# Use custom config file
+snakemake --configfile my_custom_config.txt --cores 16
+
+# Override specific parameters
+snakemake --cores 16 --config input_dir=mydata blast_hits=50
+
+# Override multiple parameters
+snakemake --cores 16 --config \
+  input_dir=mydata \
+  blast_db=/path/to/custom/db \
+  closest_neighbors=20 \
+  output_dir=custom_output
+```
+
+## 🛠️ Available Pixi Tasks
+
+View all available tasks with `pixi task list`. Key tasks include:
+
+| Task | Description | Command |
+|------|-------------|---------|
+| `test-fast` | Fast test with small database | `pixi run test-fast` |
+| `test-dry` | Dry run with test configuration | `pixi run test-dry` |
+| `dry-run` | Preview what will be executed | `pixi run dry-run` |
+| `clean` | Clean test output files | `pixi run clean` |
+| `clean-all` | Clean all output directories | `pixi run clean-all` |
+| `shell` | Start interactive shell | `pixi shell` |
+| `lint` | Lint Python scripts | `pixi run lint` (dev env) |
+| `format` | Format Python scripts | `pixi run format` (dev env) |
+
+**Note:** For running on your own data, use snakemake directly (see Usage section above)
 
 ## 📝 Scripts Documentation
 
@@ -297,6 +359,21 @@ Extracts closest neighbors from a phylogenetic tree:
 ```bash
 python workflow/scripts/extract_closest_neighbors.py --tree <tree_file> --query <query_file> --subjects <subjects_file> --output <output_file> --num_neighbors <N>
 ```
+
+### extract_phylogenetic_neighbors.py
+
+Extracts phylogenetic neighbors with taxonomy for specific query prefixes:
+
+```bash
+python workflow/scripts/extract_phylogenetic_neighbors.py --tree <tree_file> --query-prefixes <prefixes> --output-json <json_file> --output-csv <csv_file> --num-neighbors <N>
+```
+
+- `--tree`: Path to tree file
+- `--query-prefixes`: Comma-separated list of query prefixes (e.g., "Hype,Klos")
+- `--output-json`: Output JSON file with detailed neighbor information
+- `--output-csv`: Output CSV file for pipeline compatibility
+- `--num-neighbors`: Number of neighbors to extract per query (default: 5)
+- `--self-hit-threshold`: Distance threshold for self-hits (default: 0.001)
 
 ### decorate_tree.py
 

@@ -1,0 +1,24 @@
+{
+  "version": "1.2",
+  "dbname": "test_reference",
+  "dbtype": "Protein",
+  "db-version": 5,
+  "description": "test_db/test_reference.faa",
+  "number-of-letters": 53966,
+  "number-of-sequences": 131,
+  "last-updated": "2025-09-29T20:25:00",
+  "number-of-volumes": 1,
+  "bytes-total": 140152,
+  "bytes-to-cache": 55266,
+  "files": [
+    "test_reference.pdb",
+    "test_reference.phr",
+    "test_reference.pin",
+    "test_reference.pog",
+    "test_reference.pos",
+    "test_reference.pot",
+    "test_reference.psq",
+    "test_reference.ptf",
+    "test_reference.pto"
+  ]
+}

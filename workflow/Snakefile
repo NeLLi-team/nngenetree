@@ -8,12 +8,15 @@ WORKFLOW_DIR = workflow.basedir
 SCRIPTS_DIR = os.path.join(WORKFLOW_DIR, "scripts")
 
 # Set pipeline version
-VERSION = "0.9.0"
+VERSION = "1.0.0"
 
 # Configuration
 configfile: WORKFLOW_DIR + "/config.txt"
 
-INPUT_DIR = config.get("input_dir", "/data/input")
+INPUT_DIR = config.get("input_dir", "example")
+# Strip any quotes and whitespace that might have been passed in the config
+INPUT_DIR = INPUT_DIR.strip().strip('"').strip("'").strip() if isinstance(INPUT_DIR, str) else INPUT_DIR
+
 BLAST_DB = config.get("blast_db", "/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr")
 BLAST_HITS = config.get("blast_hits", 50)
 CLOSEST_NEIGHBORS = config.get("closest_neighbors", 10)  # Number of closest neighbors to extract per query
@@ -39,7 +42,15 @@ samples = {os.path.splitext(os.path.basename(f))[0]: f for f in INPUT_FILES}
 sample_order = list(samples.keys())
 
 # Define the base output directory
-OUTPUT_BASE_DIR = "/data/output"
+# Use environment variable if running in container, otherwise use local path
+# Avoid f-string issues by using explicit concatenation
+OUTPUT_BASE_DIR = config.get("output_dir", None)
+if OUTPUT_BASE_DIR is None:
+    OUTPUT_BASE_DIR = INPUT_DIR + "_nngenetree"
+
+if os.path.exists("/data/output") and os.access("/data/output", os.W_OK):
+    # We're in a container with write access to /data/output
+    OUTPUT_BASE_DIR = "/data/output"
 
 # Mark certain rules as local only
 localrules: process_blast_results, check_blast_output, 
@@ -59,9 +70,14 @@ rule all:
         expand(
             os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "tree_stats.tab"),
             sample=samples.keys()
-        )
+        ),
+        expand(
+            os.path.join(OUTPUT_BASE_DIR, "{sample}", "placement_results.json"),
+            sample=samples.keys()
+        ),
+        os.path.join(OUTPUT_BASE_DIR, "combined_placement_results.json")
     output:
-        completion_file = f"{INPUT_DIR}_nngenetree_completion.log"
+        completion_file = INPUT_DIR + "_nngenetree_completion.log"
     shell:
         """
         echo "🌟 NNGeneTree Pipeline Run Summary 🌟" > {output.completion_file}
@@ -217,12 +233,10 @@ rule run_diamond_blastp:
     input:
         query = lambda wildcards: samples[wildcards.sample]
     output:
-        blast_result = os.path.join(OUTPUT_BASE_DIR, "blast_results", "{sample}.m8")
+        blast_result = os.path.join(OUTPUT_BASE_DIR, "{sample}", "blast_results.m8")
     params:
         blast_db = BLAST_DB,
         blast_hits = BLAST_HITS
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         mkdir -p $(dirname {output.blast_result})
@@ -241,13 +255,20 @@ rule run_diamond_blastp:
 rule process_blast_results:
     threads: 1
     input:
-        blast_result = os.path.join(OUTPUT_BASE_DIR, "blast_results", "{sample}.m8")
+        blast_result = os.path.join(OUTPUT_BASE_DIR, "{sample}", "blast_results.m8")
     output:
         unique_subjects = os.path.join(OUTPUT_BASE_DIR, "{sample}", "unique_subjects.txt")
+    params:
+        max_hits = BLAST_HITS,  # Use same limit as BLAST search
+        min_hits = 5  # Minimum hits per query for warnings
     shell:
         """
         mkdir -p $(dirname {output.unique_subjects})
-        cut -f2 {input.blast_result} | sort -u > {output.unique_subjects}
+        python {SCRIPTS_DIR}/process_blast_for_extraction.py \
+            {input.blast_result} \
+            {output.unique_subjects} \
+            --max-hits {params.max_hits} \
+            --min-hits {params.min_hits}
         """
 
 ###################################
@@ -261,8 +282,6 @@ rule check_blast_output:
         check = os.path.join(OUTPUT_BASE_DIR, "{sample}", "check_blast_output.done")
     log:
         log_file = os.path.join("log", "{sample}_check_blast_output.log")
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         mkdir -p $(dirname {output.check})
@@ -289,8 +308,6 @@ rule extract_hits:
         error_log = os.path.join("log", "{sample}_extract_hits_errors.log")
     params:
         blast_db = BLAST_DB
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         mkdir -p log
@@ -311,10 +328,17 @@ rule combine_sequences:
         hits = os.path.join(OUTPUT_BASE_DIR, "{sample}", "extracted_hits.faa")
     output:
         combined_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa")
+    log:
+        os.path.join("log", "{sample}_combine_sequences.log")
     shell:
         """
-        cat {input.query} <(awk '{{ if ($0 ~ />/) {{print $1}} else {{print $0}} }}' {input.hits}) \
-            > {output.combined_sequences}
+        mkdir -p log
+        python {SCRIPTS_DIR}/combine_and_deduplicate.py \
+            {input.query} \
+            {input.hits} \
+            {output.combined_sequences} \
+            --deduplicate-by-sequence \
+            2> {log}
         """
 
 ###################################
@@ -331,8 +355,6 @@ rule align_sequences:
         combined_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "combined_sequences.faa")
     output:
         aligned_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "aligned_sequences.msa")
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         mkdir -p $(dirname {output.aligned_sequences})
@@ -349,8 +371,6 @@ rule trim_alignment:
         aligned_sequences = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "aligned_sequences.msa")
     output:
         trimmed_alignment = os.path.join(OUTPUT_BASE_DIR, "{sample}", "aln", "trimmed_alignment.msa")
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         trimal -in {input.aligned_sequences} -out {output.trimmed_alignment} -gt 0.1
@@ -373,8 +393,6 @@ rule build_tree:
     params:
         outdir = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree"),
         prefix = "final_tree"
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         mkdir -p {params.outdir}
@@ -395,8 +413,6 @@ rule extract_closest_neighbors:
     params:
         num_neighbors = CLOSEST_NEIGHBORS,
         query_filter_cmd = lambda wildcards: f"--query_filter {QUERY_FILTER}" if QUERY_FILTER else ""
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         # Extract closest neighbors from the tree
@@ -429,8 +445,6 @@ rule assign_taxonomy:
         updated_csv = os.path.join(OUTPUT_BASE_DIR, "{sample}", "closest_neighbors_with_taxonomy.csv")
     log:
         os.path.join("log", "{sample}_taxonomy_assignment.log")
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         # Create log directory if it doesn't exist
@@ -461,8 +475,6 @@ rule decorate_tree:
         tax_level = ITOL_TAX_LEVEL
     log:
         os.path.join("log", "{sample}_decorate_tree.log")
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         python {SCRIPTS_DIR}/decorate_tree.py \
@@ -485,11 +497,90 @@ rule calculate_tree_stats:
         os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "tree_stats.tab")
     log:
         os.path.join("log", "{sample}_tree_stats.log")
-    conda:
-        "envs/nngenetree.yml"
     shell:
         """
         python {SCRIPTS_DIR}/tree_stats.py \
             {input.tree} {input.taxonomy} {input.query} {output} \
             2> {log}
         """
+
+###################################
+# Rule: extract_phylogenetic_placement
+###################################
+rule extract_phylogenetic_placement:
+    threads: 1
+    input:
+        tree = os.path.join(OUTPUT_BASE_DIR, "{sample}", "tree", "final_tree.treefile")
+    output:
+        json_out = os.path.join(OUTPUT_BASE_DIR, "{sample}", "placement_results.json"),
+        csv_out = os.path.join(OUTPUT_BASE_DIR, "{sample}", "placement_results.csv")
+    params:
+        query_prefixes = "Hype,Klos",  # Can be configured
+        num_neighbors = 5,
+        self_hit_threshold = 0.001
+    log:
+        os.path.join("log", "{sample}_phylogenetic_placement.log")
+    shell:
+        """
+        python {SCRIPTS_DIR}/extract_phylogenetic_neighbors.py \
+            --tree {input.tree} \
+            --query-prefixes {params.query_prefixes} \
+            --output-json {output.json_out} \
+            --output-csv {output.csv_out} \
+            --num-neighbors {params.num_neighbors} \
+            --self-hit-threshold {params.self_hit_threshold} \
+            2> {log}
+        """
+
+###################################
+# Rule: combine_placement_results
+###################################
+rule combine_placement_results:
+    threads: 1
+    input:
+        placement_files = expand(
+            os.path.join(OUTPUT_BASE_DIR, "{sample}", "placement_results.json"),
+            sample=samples.keys()
+        )
+    output:
+        combined = os.path.join(OUTPUT_BASE_DIR, "combined_placement_results.json")
+    run:
+        import json
+
+        combined_results = {
+            "orthogroups": [],
+            "total_queries": 0,
+            "overall_taxonomy_summary": {
+                "domains": {},
+                "total_neighbors": 0
+            }
+        }
+
+        for placement_file in input.placement_files:
+            # Extract orthogroup name from path
+            og_name = os.path.basename(os.path.dirname(placement_file))
+
+            with open(placement_file, 'r') as f:
+                data = json.load(f)
+
+            # Add orthogroup data
+            combined_results["orthogroups"].append({
+                "name": og_name,
+                "query_count": data.get("query_count", 0),
+                "taxonomy_summary": data.get("taxonomy_summary", {}),
+                "placements": data.get("placements", [])
+            })
+
+            # Update totals
+            combined_results["total_queries"] += data.get("query_count", 0)
+
+            # Aggregate taxonomy counts
+            if "taxonomy_summary" in data and "domains" in data["taxonomy_summary"]:
+                for domain, count in data["taxonomy_summary"]["domains"].items():
+                    combined_results["overall_taxonomy_summary"]["domains"][domain] = \
+                        combined_results["overall_taxonomy_summary"]["domains"].get(domain, 0) + count
+                    combined_results["overall_taxonomy_summary"]["total_neighbors"] += count
+
+        # Write combined results
+        with open(output.combined, 'w') as f:
+            json.dump(combined_results, f, indent=2)
