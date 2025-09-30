@@ -70,20 +70,44 @@ pixi install
 
 That's it! All dependencies are now installed and managed by Pixi.
 
+### Install as System Command (Optional)
+
+To run `nngenetree` from anywhere on your system:
+
+```bash
+# Option 1: Link to ~/bin (user-level)
+mkdir -p ~/bin
+ln -s $(pwd)/run_nextflow.sh ~/bin/nngenetree
+# Add ~/bin to PATH if not already (add to ~/.bashrc or ~/.zshrc)
+export PATH="$HOME/bin:$PATH"
+
+# Option 2: Link to /usr/local/bin (system-wide, requires sudo)
+sudo ln -s $(pwd)/run_nextflow.sh /usr/local/bin/nngenetree
+
+# Test it works from any directory
+cd /tmp
+nngenetree test
+```
+
 ## 🚀 Usage
 
 ### Running the Pipeline
 
 ```bash
 # Fast test with small test database (includes verification)
-bash run_nextflow.sh test
+nngenetree test
+# or: bash run_nextflow.sh test
 
 # Run on your data locally
-bash run_nextflow.sh my_input_dir local
+nngenetree my_input_dir local
+# or: bash run_nextflow.sh my_input_dir local
 
 # SLURM cluster execution (default)
-bash run_nextflow.sh my_input_dir slurm
+nngenetree my_input_dir slurm
+# or: bash run_nextflow.sh my_input_dir slurm
 ```
+
+**Note:** Use `nngenetree` if you've installed it as a system command (see Installation section), otherwise use `bash run_nextflow.sh`.
 
 ### Nextflow Features
 
@@ -152,7 +176,7 @@ python bin/orthofinder_preprocess.py \
 exit
 
 # Step 2: Run NNGeneTree Nextflow pipeline on the orthogroups
-bash run_nextflow.sh my_orthogroups local
+nngenetree my_orthogroups local
 ```
 
 ### OrthoFinder Script Options
@@ -344,7 +368,7 @@ View all available tasks with `pixi task list`. Key tasks include:
 | `lint` | Lint Python scripts | `pixi run lint` (dev env) |
 | `format` | Format Python scripts | `pixi run format` (dev env) |
 
-**Note:** For running on your own data, use: `bash run_nextflow.sh <input_dir> [local|slurm]`
+**Note:** For running on your own data, use: `nngenetree <input_dir> [local|slurm]` (or `bash run_nextflow.sh` if not installed as system command)
 
 ## 📝 Scripts Documentation
 

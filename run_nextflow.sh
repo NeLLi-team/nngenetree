@@ -3,17 +3,27 @@
 # NNGeneTree Nextflow Execution Script
 ##############################################
 # Usage:
-#   bash run_nextflow.sh test                      # Run test mode with verification
-#   bash run_nextflow.sh <input_directory> local   # Run locally
-#   bash run_nextflow.sh <input_directory> slurm   # Run on SLURM (default)
+#   nngenetree test                      # Run test mode with verification
+#   nngenetree <input_directory> local   # Run locally
+#   nngenetree <input_directory> slurm   # Run on SLURM (default)
 #
 # Examples:
-#   bash run_nextflow.sh test                  # Test with small database
-#   bash run_nextflow.sh my_data local         # Run my_data locally
-#   bash run_nextflow.sh my_data slurm         # Run my_data on SLURM
+#   nngenetree test                  # Test with small database
+#   nngenetree my_data local         # Run my_data locally
+#   nngenetree my_data slurm         # Run my_data on SLURM
 #
 
 set -euo pipefail
+
+# Save caller's working directory
+CALLER_PWD="$(pwd)"
+
+# Detect script location and repository root
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="${SCRIPT_DIR}"
+
+# Change to repository directory
+cd "${REPO_ROOT}"
 
 # Check arguments
 if [ $# -lt 1 ]; then
@@ -94,8 +104,15 @@ if [ "$1" = "test" ]; then
     fi
 else
     # Production mode
-    INPUT_DIR="$1"
+    INPUT_DIR_ARG="$1"
     EXECUTION_MODE="${2:-slurm}"
+
+    # Convert relative path to absolute (relative to caller's PWD, not repo)
+    if [[ "$INPUT_DIR_ARG" = /* ]]; then
+        INPUT_DIR="$INPUT_DIR_ARG"
+    else
+        INPUT_DIR="${CALLER_PWD}/${INPUT_DIR_ARG}"
+    fi
 
     # Validate input directory
     if [ ! -d "$INPUT_DIR" ]; then
