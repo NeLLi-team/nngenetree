@@ -128,7 +128,7 @@ def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
                     query_node.name,
                     neighbor_name,
                     f"{dist:.6f}",
-                    taxonomy.split(";")[0].strip()  # Domain level for CSV
+                    taxonomy  # Full taxonomy string for CSV
                 ])
 
                 if len(neighbors) >= num_neighbors:
@@ -164,7 +164,7 @@ def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
         with open(output_csv, 'w', newline='') as f:
             writer = csv.writer(f)
             # Write header
-            writer.writerow(["query_id", "neighbor_id", "distance", "domain"])
+            writer.writerow(["query_id", "neighbor_id", "distance", "taxonomy"])
             # Write data
             writer.writerows(csv_rows)
 
