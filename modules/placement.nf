@@ -35,7 +35,7 @@ process COMBINE_PLACEMENT_RESULTS {
     cpus 1
 
     input:
-    tuple val(sample_ids), path(placement_files)
+    tuple val(sample_ids), path(placement_files, stageAs: 'placement_?.json')
 
     output:
     path("combined_placement_results.json"), emit: combined_json
@@ -44,7 +44,7 @@ process COMBINE_PLACEMENT_RESULTS {
     """
     #!/usr/bin/env python3
     import json
-    import os
+    import glob
     from pathlib import Path
 
     combined_results = {
@@ -56,9 +56,11 @@ process COMBINE_PLACEMENT_RESULTS {
         }
     }
 
-    # Process each placement file with its sample ID
-    placement_files = "${placement_files}".split()
-    sample_ids = "${sample_ids}".split()
+    # Get all staged placement files
+    placement_files = sorted(glob.glob("placement_*.json"))
+    # Parse sample_ids from Nextflow list format: [test1, test2]
+    sample_ids_str = "${sample_ids}"
+    sample_ids = [s.strip() for s in sample_ids_str.strip('[]').split(',')]
 
     for sample_id, placement_file in zip(sample_ids, placement_files):
         og_name = sample_id

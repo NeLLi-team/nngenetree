@@ -135,11 +135,15 @@ workflow {
     EXTRACT_PHYLOGENETIC_PLACEMENT(BUILD_TREE.out.tree)
 
     // Step 14: Combine all placement results
-    COMBINE_PLACEMENT_RESULTS(
-        EXTRACT_PHYLOGENETIC_PLACEMENT.out.placement_json
-            .map { sample_id, file -> file }
-            .collect()
-    )
+    all_placements = EXTRACT_PHYLOGENETIC_PLACEMENT.out.placement_json
+        .toList()
+        .map { list ->
+            def sample_ids = list.collect { it[0] }
+            def files = list.collect { it[1] }
+            tuple(sample_ids, files)
+        }
+
+    COMBINE_PLACEMENT_RESULTS(all_placements)
 }
 
 // Workflow completion handler
