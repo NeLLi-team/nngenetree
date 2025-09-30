@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 
 def count_lines(blast_file):

@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 from ete3 import Tree
 import pandas as pd

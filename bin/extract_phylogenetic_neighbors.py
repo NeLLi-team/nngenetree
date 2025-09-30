@@ -65,7 +65,7 @@ def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
         query_nodes = []
         for leaf in tree.get_leaves():
             for prefix in query_prefixes:
-                if leaf.name.startswith(f"{prefix}|") or leaf.name == prefix:
+                if leaf.name.startswith(prefix):
                     query_nodes.append(leaf)
                     break
 

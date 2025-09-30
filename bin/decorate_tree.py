@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import sys
 import traceback
 from ete3 import Tree, TreeStyle, NodeStyle, CircleFace

@@ -2,7 +2,13 @@
 
 [![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/NeLLi-team/nngenetree) [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-**NNGeneTree** is a Snakemake pipeline for phylogenetic analysis and taxonomic classification of protein sequences. It builds gene trees and finds the nearest neighbors of query sequences in the phylogenetic context, assigning taxonomy information for comprehensive evolutionary analysis.
+**NNGeneTree** is a phylogenetic analysis and taxonomic classification pipeline for protein sequences. It builds gene trees and finds the nearest neighbors of query sequences in the phylogenetic context, assigning taxonomy information for comprehensive evolutionary analysis.
+
+**Available in two workflow engines:**
+- **Snakemake** (original) - Python-based workflow engine
+- **Nextflow** (new) - Dataflow-oriented workflow engine with built-in resume and reporting
+
+Both implementations use the same analysis scripts and produce identical results.
 
 ## 🔍 Table of Contents
 
@@ -40,7 +46,7 @@ NNGeneTree leverages the power of phylogenetic analysis to place query protein s
 - [SLURM](https://slurm.schedmd.com/) (optional, for cluster execution)
 
 The pipeline automatically manages all required tools through Pixi:
-- Snakemake (workflow management)
+- Snakemake / Nextflow (workflow management)
 - DIAMOND (fast protein similarity search)
 - BLAST+ (sequence extraction)
 - MAFFT (multiple sequence alignment)
@@ -48,6 +54,7 @@ The pipeline automatically manages all required tools through Pixi:
 - IQ-TREE (phylogenetic tree construction)
 - ETE Toolkit (tree manipulation)
 - BioPython (sequence analysis and taxonomy retrieval)
+- OpenJDK (for Nextflow)
 
 ## 💻 Installation
 
@@ -69,7 +76,9 @@ That's it! All dependencies are now installed and managed by Pixi.
 
 ## 🚀 Usage
 
-### Running with Pixi (Recommended)
+### Snakemake (Default)
+
+#### Running with Pixi (Recommended)
 
 ```bash
 # Fast test with small test database (completes in minutes)
@@ -93,7 +102,7 @@ pixi run dry-run
 pixi run clean
 ```
 
-### Traditional Shell Script
+#### Traditional Shell Script
 
 ```bash
 # Local execution (16 cores)
@@ -102,6 +111,29 @@ bash run.sh <input_directory> true
 # SLURM cluster execution
 bash run.sh <input_directory>
 ```
+
+### Nextflow (Alternative)
+
+Nextflow provides built-in resume, execution reports, and cloud support:
+
+```bash
+# Fast test with small test database
+bash run_nextflow_test.sh
+
+# Run on your data locally
+bash run_nextflow.sh my_input_dir local
+
+# SLURM cluster execution
+bash run_nextflow.sh my_input_dir slurm
+```
+
+**Nextflow advantages:**
+- Automatic resume on failure (`-resume`)
+- HTML execution reports with resource usage
+- Built-in timeline and DAG visualizations
+- Cloud-ready (AWS, Azure, Google Cloud)
+
+For complete Nextflow documentation, see [NEXTFLOW_README.md](NEXTFLOW_README.md).
 
 ## 🧬 OrthoFinder Integration
 

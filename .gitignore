@@ -6,6 +6,14 @@ example_nngenetree_completion.log
 .pixi
 *_output
 old
+test_output_snk
+
+# Nextflow generated files
+.nextflow/
+.nextflow.log*
+work/
+test_run*.log
+test_nngenetree/
 
 # Claude Code files (local development only)
 CLAUDE.md

@@ -28,9 +28,11 @@ tqdm = ">=4.65,<5"
 requests = ">=2.28,<3"
 click = ">=8.0,<9"
 
-# Snakemake (for pipeline execution)
+# Workflow engines
 snakemake = ">=7.0,<8"
 snakemake-minimal = ">=7.0,<8"
+nextflow = ">=23.0"
+openjdk = ">=11,<22"
 
 # System tools
 wget = ">=1.20,<2"
