@@ -1,12 +1,9 @@
 nngenetree.sif
 .snakemake
-*_nngenetree
 log
-example_nngenetree_completion.log
 .pixi
 *_output
 old
-test_output_snk
 
 # Nextflow generated files
 .nextflow/
@@ -18,3 +15,8 @@ test_nngenetree/
 # Claude Code files (local development only)
 CLAUDE.md
 .claude/
+
+# Editor and filesystem temporary files
+*.swp
+.*.swp
+.nfs*

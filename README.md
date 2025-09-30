@@ -1,14 +1,10 @@
 # 🧬 NNGeneTree 🌳
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/NeLLi-team/nngenetree) [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
+[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/NeLLi-team/nngenetree) [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
 **NNGeneTree** is a phylogenetic analysis and taxonomic classification pipeline for protein sequences. It builds gene trees and finds the nearest neighbors of query sequences in the phylogenetic context, assigning taxonomy information for comprehensive evolutionary analysis.
 
-**Available in two workflow engines:**
-- **Snakemake** (original) - Python-based workflow engine
-- **Nextflow** (new) - Dataflow-oriented workflow engine with built-in resume and reporting
-
-Both implementations use the same analysis scripts and produce identical results.
+**Built with Nextflow** - a dataflow-oriented workflow engine with built-in resume and reporting capabilities.
 
 ## 🔍 Table of Contents
 
@@ -46,7 +42,7 @@ NNGeneTree leverages the power of phylogenetic analysis to place query protein s
 - [SLURM](https://slurm.schedmd.com/) (optional, for cluster execution)
 
 The pipeline automatically manages all required tools through Pixi:
-- Snakemake / Nextflow (workflow management)
+- Nextflow (workflow management)
 - DIAMOND (fast protein similarity search)
 - BLAST+ (sequence extraction)
 - MAFFT (multiple sequence alignment)
@@ -76,74 +72,39 @@ That's it! All dependencies are now installed and managed by Pixi.
 
 ## 🚀 Usage
 
-### Snakemake (Default)
-
-#### Running with Pixi (Recommended)
+### Running the Pipeline
 
 ```bash
-# Fast test with small test database (completes in minutes)
-# Output: test_nngenetree/
-pixi run test-fast
-
-# Run on your own data locally (16 cores)
-# Output: mydata_nngenetree/
-snakemake --cores 16 --config input_dir=mydata
-
-# Run with custom config file
-snakemake --cores 16 --configfile my_config.txt
-
-# Override specific config parameters
-snakemake --cores 16 --config input_dir=mydata blast_hits=50 closest_neighbors=20
-
-# Dry run (preview what will be executed)
-pixi run dry-run
-
-# Clean output files
-pixi run clean
-```
-
-#### Traditional Shell Script
-
-```bash
-# Local execution (16 cores)
-bash run.sh <input_directory> true
-
-# SLURM cluster execution
-bash run.sh <input_directory>
-```
-
-### Nextflow (Alternative)
-
-Nextflow provides built-in resume, execution reports, and cloud support:
-
-```bash
-# Fast test with small test database
-bash run_nextflow_test.sh
+# Fast test with small test database (includes verification)
+bash run_nextflow.sh test
 
 # Run on your data locally
 bash run_nextflow.sh my_input_dir local
 
-# SLURM cluster execution
+# SLURM cluster execution (default)
 bash run_nextflow.sh my_input_dir slurm
 ```
 
-**Nextflow advantages:**
-- Automatic resume on failure (`-resume`)
-- HTML execution reports with resource usage
-- Built-in timeline and DAG visualizations
-- Cloud-ready (AWS, Azure, Google Cloud)
+### Nextflow Features
+
+- **Automatic resume on failure** (`-resume`)
+- **HTML execution reports** with resource usage
+- **Built-in timeline and DAG visualizations**
+- **Cloud-ready** (AWS, Azure, Google Cloud)
 
 For complete Nextflow documentation, see [NEXTFLOW_README.md](NEXTFLOW_README.md).
 
-## 🧬 OrthoFinder Integration
+## 🧬 OrthoFinder Preprocessing (Optional)
 
 ### Overview
 
-NNGeneTree now includes integrated support for OrthoFinder preprocessing, allowing you to:
-1. Identify orthogroups across multiple genomes
+NNGeneTree includes an **optional preprocessing script** for OrthoFinder integration. This is run **separately before** the main Nextflow pipeline and allows you to:
+1. Identify orthogroups across multiple genomes using OrthoFinder
 2. Filter orthogroups by target protein IDs
 3. Automatically create FASTA files for each orthogroup
-4. Process orthogroups through the NNGeneTree pipeline
+4. Use the orthogroup FASTA files as input to the NNGeneTree Nextflow pipeline
+
+**Note:** OrthoFinder preprocessing is NOT part of the Nextflow pipeline. It's a standalone preparatory step.
 
 ### Prerequisites
 
@@ -165,12 +126,12 @@ MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTA...
 pixi shell
 
 # Basic usage - process all orthogroups
-python workflow/scripts/orthofinder_preprocess.py \
+python bin/orthofinder_preprocess.py \
   --genomes_faa_dir path/to/genomes \
   --output_dir path/to/output
 
 # Filter orthogroups containing specific proteins
-python workflow/scripts/orthofinder_preprocess.py \
+python bin/orthofinder_preprocess.py \
   --genomes_faa_dir path/to/genomes \
   --output_dir path/to/output \
   --target "target_substring"
@@ -182,19 +143,21 @@ Process genomes through OrthoFinder and then run NNGeneTree:
 
 ```bash
 # Step 1: Run OrthoFinder preprocessing
-pixi run python workflow/scripts/orthofinder_preprocess.py \
+pixi shell
+python bin/orthofinder_preprocess.py \
   --genomes_faa_dir my_genomes/ \
   --output_dir my_orthogroups/ \
   --target "species1|contig_10_" \
   --threads 16
+exit
 
-# Step 2: Run NNGeneTree on the orthogroups
-pixi run run-local my_orthogroups/
+# Step 2: Run NNGeneTree Nextflow pipeline on the orthogroups
+bash run_nextflow.sh my_orthogroups local
 ```
 
 ### OrthoFinder Script Options
 
-The preprocessing script (`workflow/scripts/orthofinder_preprocess.py`) supports:
+The preprocessing script (`bin/orthofinder_preprocess.py`) supports:
 - `--genomes_faa_dir`: Directory containing genome FASTA files
 - `--output_dir`: Output directory for orthogroup FASTA files
 - `--target`: Comma-separated list of substrings to filter orthogroups
@@ -277,7 +240,7 @@ INPUT FASTA FILES (.faa)
 
 ## 📂 Output Description
 
-Results are saved in a directory named `<input_dir>_nngenetree/`. For each input FASTA file, you'll find:
+Results are saved in a directory named `<input_dir>_output/`. For each input FASTA file, you'll find:
 
 - `<sample>/`: Sample-specific results including:
   - `blast_results.m8`: DIAMOND BLAST tabular output
@@ -304,7 +267,7 @@ Results are saved in a directory named `<input_dir>_nngenetree/`. For each input
     - `itol_ranges.txt`
 - `combined_placement_results.json`: Aggregated placement results across all samples
 
-A comprehensive log file (`<input_dir>_nngenetree_completion.log`) contains a summary of the analysis, including:
+A comprehensive log file (`<input_dir>_output_completion.log`) contains a summary of the analysis, including:
 - Pipeline version and runtime information
 - BLAST hit counts for each sample
 - Taxonomy distribution statistics (domains, phyla, classes, orders, families, genera)
@@ -312,47 +275,61 @@ A comprehensive log file (`<input_dir>_nngenetree_completion.log`) contains a su
 
 ## ⚙️ Configuration
 
-### Config File Options
+### Nextflow Configuration
 
-Edit `workflow/config.txt` or create your own config file:
+Edit `nextflow.config` or create a custom config file:
 
 **Basic Parameters:**
-- `input_dir`: Directory containing input .faa files
-- `output_dir`: Override default output directory (default: `{input_dir}_nngenetree`)
-- `blast_db`: Path to BLAST/DIAMOND database (default: `/clusterfs/jgi/scratch/science/mgs/nelli/databases/nr/nr`)
-- `blast_hits`: Number of BLAST hits to retrieve per query (default: 20)
-- `closest_neighbors`: Number of closest neighbors to extract per query (default: 10)
+- `input_dir`: Directory containing input .faa files (default: 'test')
+- `output_dir`: Override default output directory (default: `{input_dir}_output`)
+- `blast_db`: Path to BLAST/DIAMOND database (default: test database for testing)
+- `blast_hits`: Number of BLAST hits to retrieve per query (default: 5)
+- `closest_neighbors`: Number of closest neighbors to extract per query (default: 5)
 - `query_filter`: Optional comma-separated list of query prefixes to filter
+- `query_prefixes`: Prefixes for phylogenetic placement (default: 'Hype,Klos')
+- `num_neighbors_placement`: Number of neighbors for placement (default: 5)
 - `itol_tax_level`: Taxonomy level for iTOL visualization (default: class; options: domain, phylum, class, order, family, genus, species)
 
 **Resource Configuration:**
-```yaml
-resources:
-  run_diamond_blastp:
-    threads: 8
-    mem_mb: 32000
-    time: "2:00:00"
-  # Additional resource configurations...
+```groovy
+params {
+  resources {
+    run_diamond_blastp {
+      threads = 4
+      mem_mb = 8000
+      time = '10m'
+    }
+    // Additional resource configurations in nextflow.config
+  }
+}
 ```
+
+**Execution Profiles:**
+- `standard`: Default profile (base configuration)
+- `local`: Local execution with 16 cores
+- `slurm`: SLURM cluster execution
+- `test`: Test profile with small database
 
 ### Override Configuration
 
-You can override any config parameter on the command line:
+You can override any config parameter in `nextflow.config` or via command line:
 
 ```bash
 # Use custom config file
-snakemake --configfile my_custom_config.txt --cores 16
+nextflow run main.nf -c my_custom_config.txt
 
 # Override specific parameters
-snakemake --cores 16 --config input_dir=mydata blast_hits=50
+nextflow run main.nf --input_dir mydata --blast_hits 50
 
 # Override multiple parameters
-snakemake --cores 16 --config \
-  input_dir=mydata \
-  blast_db=/path/to/custom/db \
-  closest_neighbors=20 \
-  output_dir=custom_output
+nextflow run main.nf \
+  --input_dir mydata \
+  --blast_db /path/to/custom/db \
+  --closest_neighbors 20 \
+  --output_dir custom_output
 ```
+
+See [NEXTFLOW_README.md](NEXTFLOW_README.md) for more configuration options.
 
 ## 🛠️ Available Pixi Tasks
 
@@ -360,25 +337,25 @@ View all available tasks with `pixi task list`. Key tasks include:
 
 | Task | Description | Command |
 |------|-------------|---------|
-| `test-fast` | Fast test with small database | `pixi run test-fast` |
-| `test-dry` | Dry run with test configuration | `pixi run test-dry` |
-| `dry-run` | Preview what will be executed | `pixi run dry-run` |
-| `clean` | Clean test output files | `pixi run clean` |
+| `test` | Run test pipeline with verification | `pixi run test` |
+| `clean` | Clean test output and logs | `pixi run clean` |
 | `clean-all` | Clean all output directories | `pixi run clean-all` |
 | `shell` | Start interactive shell | `pixi shell` |
 | `lint` | Lint Python scripts | `pixi run lint` (dev env) |
 | `format` | Format Python scripts | `pixi run format` (dev env) |
 
-**Note:** For running on your own data, use snakemake directly (see Usage section above)
+**Note:** For running on your own data, use: `bash run_nextflow.sh <input_dir> [local|slurm]`
 
 ## 📝 Scripts Documentation
+
+All scripts are located in the `bin/` directory and are automatically available in your PATH when using `pixi shell`.
 
 ### parse_closest_neighbors.py
 
 Processes closest neighbors CSV files and adds NCBI taxonomy information:
 
 ```bash
-python workflow/scripts/parse_closest_neighbors.py -d <directory> -o <output_file>
+python bin/parse_closest_neighbors.py -d <directory> -o <output_file>
 ```
 
 - `-d, --base-dir`: Base directory containing CSV files
@@ -389,7 +366,7 @@ python workflow/scripts/parse_closest_neighbors.py -d <directory> -o <output_fil
 Extracts closest neighbors from a phylogenetic tree:
 
 ```bash
-python workflow/scripts/extract_closest_neighbors.py --tree <tree_file> --query <query_file> --subjects <subjects_file> --output <output_file> --num_neighbors <N>
+python bin/extract_closest_neighbors.py --tree <tree_file> --query <query_file> --subjects <subjects_file> --output <output_file> --num_neighbors <N>
 ```
 
 ### extract_phylogenetic_neighbors.py
@@ -397,7 +374,7 @@ python workflow/scripts/extract_closest_neighbors.py --tree <tree_file> --query 
 Extracts phylogenetic neighbors with taxonomy for specific query prefixes:
 
 ```bash
-python workflow/scripts/extract_phylogenetic_neighbors.py --tree <tree_file> --query-prefixes <prefixes> --output-json <json_file> --output-csv <csv_file> --num-neighbors <N>
+python bin/extract_phylogenetic_neighbors.py --tree <tree_file> --query-prefixes <prefixes> --output-json <json_file> --output-csv <csv_file> --num-neighbors <N>
 ```
 
 - `--tree`: Path to tree file
@@ -412,7 +389,7 @@ python workflow/scripts/extract_phylogenetic_neighbors.py --tree <tree_file> --q
 Creates visualizations of the phylogenetic trees with taxonomy information:
 
 ```bash
-python workflow/scripts/decorate_tree.py <tree_file> <taxonomy_file> <query_file> <output_png> <itol_prefix>
+python bin/decorate_tree.py <tree_file> <taxonomy_file> <query_file> <output_png> <itol_prefix>
 ```
 
 ### tree_stats.py
@@ -420,7 +397,7 @@ python workflow/scripts/decorate_tree.py <tree_file> <taxonomy_file> <query_file
 Calculates statistics about the phylogenetic relationships:
 
 ```bash
-python workflow/scripts/tree_stats.py <tree_file> <taxonomy_file> <query_file> <output_file>
+python bin/tree_stats.py <tree_file> <taxonomy_file> <query_file> <output_file>
 ```
 
 ## 📜 License

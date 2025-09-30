@@ -5,6 +5,81 @@ All notable changes to NNGeneTree will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0] - 2025-09-30
+
+### 🚀 Major Migration - Nextflow Implementation
+
+This release completely migrates NNGeneTree from Snakemake to Nextflow, providing better scalability, resume capabilities, and execution reports.
+
+### ✨ Added
+
+#### Workflow Engine
+- **Nextflow Pipeline**: Complete rewrite using Nextflow DSL2
+  - Modular process architecture in `modules/` directory
+  - Built-in resume capability with `-resume` flag
+  - Automatic execution reports (HTML timeline, DAG, trace)
+  - Better cloud integration (AWS, Azure, Google Cloud ready)
+  - Improved SLURM integration via `conf/slurm.config`
+
+#### Execution
+- **Unified Run Script**: Single `run_nextflow.sh` for all execution modes
+  - `bash run_nextflow.sh test` - Test mode with verification
+  - `bash run_nextflow.sh <dir> local` - Local execution
+  - `bash run_nextflow.sh <dir> slurm` - SLURM cluster
+  - Built-in output verification for test mode
+- **Pixi Test Task**: `pixi run test` for quick testing
+
+#### Features
+- **Full Taxonomy in CSV**: `placement_results.csv` now includes complete taxonomy strings
+  - Changed from domain-only to full lineage (e.g., "Bacteria;Bacillati;Bacillota;...")
+- **Standardized Output**: All outputs now use `{input_dir}_output` pattern
+- **Better Documentation**: Updated README with Nextflow-specific instructions
+
+### 🔧 Changed
+
+#### Configuration
+- **Nextflow Config**: Moved from `workflow/config.txt` to `nextflow.config`
+  - Profile-based execution (test, local, slurm)
+  - Cleaner parameter override syntax
+  - Resource configuration in config blocks
+- **Script Location**: All scripts moved from `workflow/scripts/` to `bin/`
+- **Query Prefixes**: Added documentation explaining example vs actual test values
+
+### 🗑️ Removed
+
+#### Legacy Files
+- Removed all Snakemake execution scripts:
+  - `run.sh` (Snakemake)
+  - `run_container.sh` (Snakemake container)
+  - `run_slurm.sh` (Snakemake SLURM)
+  - `run_nextflow_test.sh` (merged into main script)
+- Removed Snakemake-specific pixi tasks
+- Cleaned up obsolete log files
+
+### 🐛 Fixed
+- **Java Version**: Scripts now use `pixi run nextflow` to ensure Java 11+ from pixi environment
+- **Path Consistency**: All documentation updated with correct `bin/` paths
+- **Output Deduplication**: Single output directory pattern across all modes
+
+### 📚 Documentation
+- Updated README.md with Nextflow usage
+- Updated NEXTFLOW_README.md with comprehensive guide
+- Added query_prefixes configuration explanation
+- Removed all Snakemake references from user-facing docs
+
+### ⚠️ Breaking Changes
+- Snakemake workflow no longer maintained (available in `nngenetree-snk` branch)
+- Command-line syntax changed from `snakemake --config` to `nextflow run main.nf --param`
+- Configuration file format changed from text to Groovy/Nextflow config
+- Output directory naming changed from `*_nngenetree` to `*_output`
+
+### 🔄 Migration Notes
+For users migrating from v1.0 (Snakemake):
+1. Old Snakemake version preserved in branch `nngenetree-snk`
+2. Update scripts to use `run_nextflow.sh` instead of `run.sh`
+3. Convert `workflow/config.txt` settings to `nextflow.config` format
+4. Update output directory references from `*_nngenetree` to `*_output`
+
 ## [1.0.0] - 2025-09-29
 
 ### 🎉 Major Release - Production Ready

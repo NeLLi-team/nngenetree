@@ -8,7 +8,7 @@ This directory contains the Nextflow implementation of the NNGeneTree pipeline, 
 
 ```bash
 # Test run with small database (recommended first step)
-bash run_nextflow_test.sh
+bash run_nextflow.sh test
 
 # Run on your own data locally
 bash run_nextflow.sh mydata local
@@ -64,7 +64,7 @@ Alternatively, Nextflow can use conda or containers for dependencies.
 The fastest way to verify the pipeline works:
 
 ```bash
-bash run_nextflow_test.sh
+bash run_nextflow.sh test
 ```
 
 This runs on the test dataset (`test/*.faa`) using a small reference database. Completes in minutes.
@@ -132,7 +132,7 @@ Key parameters can be set in `nextflow/nextflow.config` or via command line:
 | Parameter | Description | Default |
 |-----------|-------------|---------|
 | `input_dir` | Directory with .faa files | `test` |
-| `output_dir` | Output directory | `{input_dir}_nngenetree` |
+| `output_dir` | Output directory | `{input_dir}_output` |
 | `blast_db` | BLAST database path | `test/db/test_reference` |
 | `blast_hits` | BLAST hits per query | `5` (test), `20` (prod) |
 | `closest_neighbors` | Neighbors to extract | `5` (test), `10` (prod) |
@@ -183,7 +183,7 @@ params {
 Same as Snakemake pipeline:
 
 ```
-{input_dir}_nngenetree/
+{input_dir}_output/
 ├── test1/                           # Sample-specific results
 │   ├── blast_results.m8
 │   ├── unique_subjects.txt
@@ -308,7 +308,7 @@ To switch:
 pixi run test-fast
 
 # Nextflow
-bash run_nextflow_test.sh
+bash run_nextflow.sh test
 ```
 
 Results are interchangeable.
@@ -320,7 +320,7 @@ When adding new features:
 1. Add process to appropriate module in `nextflow/modules/`
 2. Include process in `nextflow/main.nf`
 3. Update configuration in `nextflow/conf/`
-4. Test with `bash run_nextflow_test.sh`
+4. Test with `bash run_nextflow.sh test`
 5. Document in this README
 
 ## License
