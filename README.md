@@ -77,7 +77,7 @@ To run `nngenetree` from any directory on your system, create a symbolic link to
 ```bash
 # From the nngenetree repository directory
 mkdir -p ~/bin
-ln -s $(pwd)/run_nextflow.sh ~/bin/nngenetree
+ln -s $(pwd)/nngenetree ~/bin/nngenetree
 
 # Add ~/bin to PATH (if not already in your PATH)
 echo 'export PATH="$HOME/bin:$PATH"' >> ~/.bashrc
@@ -97,18 +97,18 @@ Once installed, you can run `nngenetree` from any location and it will automatic
 ```bash
 # Fast test with small test database (includes verification)
 nngenetree test
-# or: bash run_nextflow.sh test
+# or: bash nngenetree test
 
 # Run on your data locally
 nngenetree my_input_dir local
-# or: bash run_nextflow.sh my_input_dir local
+# or: bash nngenetree my_input_dir local
 
 # SLURM cluster execution (default)
 nngenetree my_input_dir slurm
-# or: bash run_nextflow.sh my_input_dir slurm
+# or: bash nngenetree my_input_dir slurm
 ```
 
-**Note:** Use `nngenetree` if you've installed it as a system command (see Installation section), otherwise use `bash run_nextflow.sh`.
+**Note:** Use `nngenetree` directly if you've installed it as a system command (see Installation section), otherwise use `bash nngenetree`.
 
 ### Nextflow Features
 
@@ -369,7 +369,7 @@ View all available tasks with `pixi task list`. Key tasks include:
 | `lint` | Lint Python scripts | `pixi run lint` (dev env) |
 | `format` | Format Python scripts | `pixi run format` (dev env) |
 
-**Note:** For running on your own data, use: `nngenetree <input_dir> [local|slurm]` (or `bash run_nextflow.sh` if not installed as system command)
+**Note:** For running on your own data, use: `nngenetree <input_dir> [local|slurm]` (or `bash nngenetree` if not installed as system command)
 
 ## 📝 Scripts Documentation
 
