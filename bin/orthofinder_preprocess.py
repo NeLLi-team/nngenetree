@@ -290,7 +290,7 @@ Example usage:
     # Extract sequences
     extracted = extract_orthogroup_sequences(orthogroups, args.genomes_faa_dir, args.output_dir)
 
-    logger.info(f"✅ Successfully extracted {extracted} orthogroup files to {args.output_dir}")
+    logger.info(f"Successfully extracted {extracted} orthogroup files to {args.output_dir}")
     logger.info(f"These files can now be used as input for the NNGeneTree pipeline")
 
 

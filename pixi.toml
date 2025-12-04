@@ -1,6 +1,6 @@
-[project]
+[workspace]
 name = "nngenetree"
-version = "1.1.0"
+version = "1.2.0"
 description = "NNGeneTree - Phylogenetic analysis and taxonomic classification pipeline"
 authors = ["NNGeneTree Development Team"]
 channels = ["conda-forge", "bioconda"]
@@ -46,7 +46,7 @@ seaborn = ">=0.13.2,<0.14"
 
 [tasks]
 # Pipeline execution
-test = { cmd = "bash run_nextflow.sh test", description = "Run test pipeline with verification" }
+test = { cmd = "bash nngenetree test", description = "Run test pipeline with verification" }
 
 # Pipeline control tasks
 clean = { cmd = "rm -rf test_output log/*.out log/*.err work .nextflow* nextflow_*", description = "Clean test output and log files" }

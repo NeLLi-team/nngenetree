@@ -27,16 +27,38 @@ include { CALCULATE_TREE_STATS } from './modules/visualization'
 include { EXTRACT_PHYLOGENETIC_PLACEMENT } from './modules/placement'
 include { COMBINE_PLACEMENT_RESULTS } from './modules/placement'
 
+// Validate required configuration (skip for test profile which has its own database)
+def isTestProfile = workflow.profile?.contains('test')
+if (!isTestProfile && (!params.blast_db || params.blast_db == 'null' || params.blast_db.toString().contains('/path/to/'))) {
+    error """
+    ╔══════════════════════════════════════════════════════════════════╗
+    ║  ERROR: Database path not configured!                            ║
+    ╠══════════════════════════════════════════════════════════════════╣
+    ║  Please configure your NR database path using ONE of:            ║
+    ║                                                                  ║
+    ║  Option 1: Create conf/local.config (recommended)                ║
+    ║    cp conf/local.config.template conf/local.config               ║
+    ║    # Edit conf/local.config and set blast_db path                ║
+    ║                                                                  ║
+    ║  Option 2: Set environment variable                              ║
+    ║    export NR_DATABASE=/path/to/nr                                ║
+    ║                                                                  ║
+    ║  Option 3: Command-line parameter                                ║
+    ║    nngenetree <dir> local --blast_db /path/to/nr                 ║
+    ╚══════════════════════════════════════════════════════════════════╝
+    """.stripIndent()
+}
+
 // Print startup banner
 log.info """
-╔════════════════════════════════════════╗
-║   🧬 NNGeneTree Pipeline (Nextflow)    ║
-╠════════════════════════════════════════╣
-║ Version: 1.0.0                         ║
-║ Input:   ${params.input_dir}
-║ Output:  ${params.output_dir}
-║ Database: ${params.blast_db}
-╚════════════════════════════════════════╝
+============================================
+  NNGeneTree Pipeline (Nextflow)
+============================================
+  Version:  1.0.0
+  Input:    ${params.input_dir}
+  Output:   ${params.output_dir}
+  Database: ${params.blast_db}
+============================================
 """.stripIndent()
 
 // Main workflow
@@ -149,22 +171,22 @@ workflow {
 // Workflow completion handler
 workflow.onComplete {
     log.info """
-    ╔════════════════════════════════════════╗
-    ║     Pipeline Execution Complete        ║
-    ╠════════════════════════════════════════╣
-    ║ Status:   ${workflow.success ? '✅ SUCCESS' : '❌ FAILED'}
-    ║ Duration: ${workflow.duration}
-    ║ Output:   ${params.output_dir}
-    ╚════════════════════════════════════════╝
+    ============================================
+      Pipeline Execution Complete
+    ============================================
+      Status:   ${workflow.success ? 'SUCCESS' : 'FAILED'}
+      Duration: ${workflow.duration}
+      Output:   ${params.output_dir}
+    ============================================
     """.stripIndent()
 }
 
 workflow.onError {
     log.error """
-    ╔════════════════════════════════════════╗
-    ║         Pipeline Error Occurred        ║
-    ╠════════════════════════════════════════╣
-    ║ Error:    ${workflow.errorMessage}
-    ╚════════════════════════════════════════╝
+    ============================================
+      Pipeline Error Occurred
+    ============================================
+      Error: ${workflow.errorMessage}
+    ============================================
     """.stripIndent()
 }

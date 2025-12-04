@@ -1,0 +1,35 @@
+/*
+ * Local Configuration Template
+ * ============================
+ * Copy this file to conf/local.config and customize for your system:
+ *   cp conf/local.config.template conf/local.config
+ *
+ * This file is gitignored and will not be committed to the repository.
+ */
+
+params {
+    // ============================================================
+    // REQUIRED: Database Configuration
+    // ============================================================
+
+    // Path to DIAMOND-formatted NR database (without .dmnd extension)
+    // Example: '/media/shared-expansion/db/nr/nr' for /media/shared-expansion/db/nr/nr.dmnd
+    blast_db = '/path/to/your/nr/database'
+
+    // ============================================================
+    // REQUIRED: NCBI Entrez API Configuration
+    // ============================================================
+
+    // Your email address for NCBI Entrez API (required by NCBI)
+    entrez_email = 'your.email@example.com'
+}
+
+// ============================================================
+// SLURM Configuration (only needed if using -profile slurm)
+// ============================================================
+// Uncomment and customize for your HPC cluster:
+
+// process {
+//     queue = 'your_queue_name'
+//     clusterOptions = '--qos=your_qos --account=your_account'
+// }
