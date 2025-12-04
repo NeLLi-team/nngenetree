@@ -5,13 +5,44 @@ All notable changes to NNGeneTree will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.2.0] - 2025-11-29
+
+### Changed
+
+#### Configuration
+- **Configurable Database Path**: Removed hardcoded NR database paths
+  - Database path now set via `conf/local.config` (recommended) or `NR_DATABASE` environment variable
+  - Clear error message with setup instructions if database not configured
+  - Added `conf/local.config.template` for easy setup
+- **Configurable Entrez Email**: Python scripts now use `ENTREZ_EMAIL` environment variable
+- **SLURM Settings**: Removed hardcoded queue/account settings; now configurable in `conf/local.config`
+
+#### User Interface
+- **Removed Emojis**: Cleaned up all output messages, scripts, and documentation
+- **Simplified Banners**: Replaced Unicode box-drawing characters with ASCII
+
+#### Documentation
+- **Restructured README**: Cleaner, more intuitive organization
+  - Removed emojis throughout
+  - Added proper tables for configuration options
+  - Fixed obsolete references
+- **Updated CHANGELOG**: Consistent formatting without emojis
+
+### Fixed
+- **pixi.toml**: Changed deprecated `[project]` to `[workspace]`
+- **Task Reference**: Fixed obsolete `run_nextflow.sh` reference to `nngenetree`
+
+### Removed
+- Obsolete references to non-existent `NEXTFLOW_README.md`
+- Hardcoded paths from all configuration files
+
 ## [1.1.0] - 2025-09-30
 
-### 🚀 Major Migration - Nextflow Implementation
+### Major Migration - Nextflow Implementation
 
 This release completely migrates NNGeneTree from Snakemake to Nextflow, providing better scalability, resume capabilities, and execution reports.
 
-### ✨ Added
+### Added
 
 #### Workflow Engine
 - **Nextflow Pipeline**: Complete rewrite using Nextflow DSL2
@@ -22,10 +53,10 @@ This release completely migrates NNGeneTree from Snakemake to Nextflow, providin
   - Improved SLURM integration via `conf/slurm.config`
 
 #### Execution
-- **Unified Run Script**: Single `run_nextflow.sh` for all execution modes
-  - `bash run_nextflow.sh test` - Test mode with verification
-  - `bash run_nextflow.sh <dir> local` - Local execution
-  - `bash run_nextflow.sh <dir> slurm` - SLURM cluster
+- **Unified Run Script**: Single `nngenetree` script for all execution modes
+  - `nngenetree test` - Test mode with verification
+  - `nngenetree <dir> local` - Local execution
+  - `nngenetree <dir> slurm` - SLURM cluster
   - Built-in output verification for test mode
 - **Pixi Test Task**: `pixi run test` for quick testing
 
@@ -35,7 +66,7 @@ This release completely migrates NNGeneTree from Snakemake to Nextflow, providin
 - **Standardized Output**: All outputs now use `{input_dir}_output` pattern
 - **Better Documentation**: Updated README with Nextflow-specific instructions
 
-### 🔧 Changed
+### Changed
 
 #### Configuration
 - **Nextflow Config**: Moved from `workflow/config.txt` to `nextflow.config`
@@ -45,7 +76,7 @@ This release completely migrates NNGeneTree from Snakemake to Nextflow, providin
 - **Script Location**: All scripts moved from `workflow/scripts/` to `bin/`
 - **Query Prefixes**: Added documentation explaining example vs actual test values
 
-### 🗑️ Removed
+### Removed
 
 #### Legacy Files
 - Removed all Snakemake execution scripts:
@@ -56,37 +87,36 @@ This release completely migrates NNGeneTree from Snakemake to Nextflow, providin
 - Removed Snakemake-specific pixi tasks
 - Cleaned up obsolete log files
 
-### 🐛 Fixed
+### Fixed
 - **Java Version**: Scripts now use `pixi run nextflow` to ensure Java 11+ from pixi environment
 - **Path Consistency**: All documentation updated with correct `bin/` paths
 - **Output Deduplication**: Single output directory pattern across all modes
 
-### 📚 Documentation
+### Documentation
 - Updated README.md with Nextflow usage
-- Updated NEXTFLOW_README.md with comprehensive guide
 - Added query_prefixes configuration explanation
 - Removed all Snakemake references from user-facing docs
 
-### ⚠️ Breaking Changes
+### Breaking Changes
 - Snakemake workflow no longer maintained (available in `nngenetree-snk` branch)
 - Command-line syntax changed from `snakemake --config` to `nextflow run main.nf --param`
 - Configuration file format changed from text to Groovy/Nextflow config
 - Output directory naming changed from `*_nngenetree` to `*_output`
 
-### 🔄 Migration Notes
+### Migration Notes
 For users migrating from v1.0 (Snakemake):
 1. Old Snakemake version preserved in branch `nngenetree-snk`
-2. Update scripts to use `run_nextflow.sh` instead of `run.sh`
+2. Update scripts to use `nngenetree` instead of `run.sh`
 3. Convert `workflow/config.txt` settings to `nextflow.config` format
 4. Update output directory references from `*_nngenetree` to `*_output`
 
 ## [1.0.0] - 2025-09-29
 
-### 🎉 Major Release - Production Ready
+### Major Release - Production Ready
 
 This is the first stable release of NNGeneTree with significant improvements to dependency management, workflow reliability, and user experience.
 
-### ✨ Added
+### Added
 
 #### Dependency Management
 - **Pixi Package Manager**: Replaced conda with Pixi for faster, more reliable dependency management
@@ -131,7 +161,7 @@ This is the first stable release of NNGeneTree with significant improvements to 
   - Automatic FASTA file generation for each orthogroup
   - Direct integration with NNGeneTree pipeline
 
-### 🔧 Changed
+### Changed
 
 #### Configuration
 - **Standardized Output**: All outputs now use `{input_dir}_nngenetree` pattern
@@ -152,7 +182,7 @@ This is the first stable release of NNGeneTree with significant improvements to 
   - Better default values for cluster execution
   - Disk space allocation for large alignments
 
-### 🐛 Fixed
+### Fixed
 
 - **Duplicate Sequences**: Fixed tree-building failures caused by duplicate sequences
   - Self-hits now properly filtered during BLAST processing
@@ -164,27 +194,27 @@ This is the first stable release of NNGeneTree with significant improvements to 
   - Container-compatible path management
   - Proper working directory handling
 
-### 📝 Documentation
+### Documentation
 
 - **Configuration Guide**: Added comprehensive config override examples
 - **Task Reference**: Complete table of all functional Pixi tasks
 - **Version Badge**: Added GitHub link to README badge
 - **OrthoFinder Workflow**: Documented genome-scale analysis workflows
 
-### 🗑️ Removed
+### Removed
 
 - **Example Directory**: Replaced with `test/` for consistency
 - **Container Documentation**: Removed ~90 lines of untested container docs
 - **Non-functional Tasks**: Removed dag, build-container, run-container, pytest tasks
 - **Positional Arg Tasks**: Removed analyze, visualize, ortho-* convenience commands
 
-### 🔐 Infrastructure
+### Infrastructure
 
 - **Git Workflow**: Added completion guard and hooks for code quality
 - **Impact Tracking**: All new files documented in `.claude/impact.json`
 - **Logging**: Comprehensive logging infrastructure in `logs/` directory
 
-### 📊 Statistics
+### Statistics
 
 - **Files Added**: 50+ new files (test database, scripts, configs, documentation)
 - **Lines Changed**: ~600 lines modified since v0.9.0
@@ -206,5 +236,7 @@ This is the first stable release of NNGeneTree with significant improvements to 
 
 ---
 
+[1.2.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.2.0
+[1.1.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.1.0
 [1.0.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.0.0
 [0.9.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v0.9.0

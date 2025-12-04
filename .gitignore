@@ -12,6 +12,9 @@ work/
 test_run*.log
 test_nngenetree/
 
+# User-specific local configuration (contains machine-specific paths)
+conf/local.config
+
 # Claude Code files (local development only)
 CLAUDE.md
 .claude/

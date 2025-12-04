@@ -22,8 +22,8 @@ import tempfile
 import shutil
 import re
 
-# Set your email for NCBI Entrez
-Entrez.email = 'fschulz@lbl.gov'
+# Set email for NCBI Entrez (from environment variable or default)
+Entrez.email = os.environ.get('ENTREZ_EMAIL', 'nngenetree-user@example.com')
 
 def fetch_taxonomy(accession: str) -> str:
     """

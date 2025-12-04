@@ -44,14 +44,14 @@ fi
 # Check if test mode
 if [ "$1" = "test" ]; then
     # Test mode
-    echo "╔════════════════════════════════════════╗"
-    echo "║   🧪 NNGeneTree Test Run (Nextflow)   ║"
-    echo "╠════════════════════════════════════════╣"
-    echo "║ Test Files: test/test1.faa             ║"
-    echo "║             test/test2.faa             ║"
-    echo "║ Database:   test/db/test_reference     ║"
-    echo "║ Output:     test_output/               ║"
-    echo "╚════════════════════════════════════════╝"
+    echo "============================================"
+    echo "  NNGeneTree Test Run (Nextflow)"
+    echo "============================================"
+    echo "  Test Files: test/test1.faa"
+    echo "              test/test2.faa"
+    echo "  Database:   test/db/test_reference"
+    echo "  Output:     test_output/"
+    echo "============================================"
 
     # Clean previous test output (optional)
     if [ -d "test_output" ]; then
@@ -64,11 +64,11 @@ if [ "$1" = "test" ]; then
     pixi run nextflow run main.nf -profile test -resume
 
     echo ""
-    echo "╔════════════════════════════════════════╗"
-    echo "║     ✅ Test Pipeline Complete          ║"
-    echo "╠════════════════════════════════════════╣"
-    echo "║ Check outputs in: test_output/         ║"
-    echo "╚════════════════════════════════════════╝"
+    echo "============================================"
+    echo "  Test Pipeline Complete"
+    echo "============================================"
+    echo "  Check outputs in: test_output/"
+    echo "============================================"
 
     # Verify key outputs exist
     echo ""
@@ -87,19 +87,19 @@ if [ "$1" = "test" ]; then
     MISSING_FILES=0
     for file in "${KEY_FILES[@]}"; do
         if [ -f "$file" ]; then
-            echo "  ✅ $file"
+            echo "  [OK] $file"
         else
-            echo "  ❌ $file (MISSING)"
+            echo "  [MISSING] $file"
             ((MISSING_FILES++))
         fi
     done
 
     echo ""
     if [ $MISSING_FILES -eq 0 ]; then
-        echo "✅ All key output files generated successfully!"
+        echo "All key output files generated successfully!"
         exit 0
     else
-        echo "⚠️  Warning: $MISSING_FILES key file(s) missing"
+        echo "Warning: $MISSING_FILES key file(s) missing"
         exit 1
     fi
 else
@@ -127,13 +127,13 @@ else
         exit 1
     fi
 
-    echo "╔════════════════════════════════════════╗"
-    echo "║   🧬 NNGeneTree Nextflow Pipeline      ║"
-    echo "╠════════════════════════════════════════╣"
-    echo "║ Input Dir:    $INPUT_DIR"
-    echo "║ FASTA Files:  $FASTA_COUNT"
-    echo "║ Execution:    $EXECUTION_MODE"
-    echo "╚════════════════════════════════════════╝"
+    echo "============================================"
+    echo "  NNGeneTree Nextflow Pipeline"
+    echo "============================================"
+    echo "  Input Dir:    $INPUT_DIR"
+    echo "  FASTA Files:  $FASTA_COUNT"
+    echo "  Execution:    $EXECUTION_MODE"
+    echo "============================================"
 
     # Run Nextflow with appropriate profile
     if [ "$EXECUTION_MODE" = "local" ]; then
@@ -154,6 +154,6 @@ else
     fi
 
     echo ""
-    echo "✅ Pipeline execution complete!"
+    echo "Pipeline execution complete!"
     echo "Results are in: ${INPUT_DIR}_output/"
 fi

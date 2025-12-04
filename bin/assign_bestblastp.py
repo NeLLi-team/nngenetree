@@ -7,7 +7,8 @@ import csv  # Import the csv module
 
 app = typer.Typer()
 
-Entrez.email = 'fschulz@lbl.gov'
+# Set email for NCBI Entrez (from environment variable or default)
+Entrez.email = os.environ.get('ENTREZ_EMAIL', 'nngenetree-user@example.com')
 
 # Function to fetch taxonomy information for a given accession number
 def fetch_taxonomy(accession: str) -> str:
