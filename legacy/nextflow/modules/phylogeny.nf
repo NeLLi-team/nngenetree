@@ -16,16 +16,21 @@ process BUILD_TREE {
 
     output:
     tuple val(sample_id), path("final_tree.treefile"), emit: tree
-    tuple val(sample_id), path("final_tree.iqtree"), emit: log
     tuple val(sample_id), path("final_tree.*"), emit: all_files
 
     script:
-    """
-    iqtree -s ${trimmed_alignment} \\
-        -m LG+G4 \\
-        -T ${task.cpus} \\
-        --prefix final_tree
-    """
+    if (params.tree_builder == 'fasttree')
+        """
+        fasttree -lg < ${trimmed_alignment} > final_tree.treefile
+        echo "FastTree run completed" > final_tree.log
+        """
+    else
+        """
+        iqtree -s ${trimmed_alignment} \\
+            -m LG+G4 \\
+            -T ${task.cpus} \\
+            --prefix final_tree
+        """
 }
 
 process EXTRACT_CLOSEST_NEIGHBORS {

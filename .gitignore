@@ -1,25 +1,63 @@
-nngenetree.sif
-.snakemake
-log
-.pixi
-*_output
-old
+# ===========================================
+# NNGeneTree .gitignore
+# ===========================================
 
-# Nextflow generated files
+# ----- Environment and Dependencies -----
+.pixi/
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# ----- Nextflow (legacy) -----
 .nextflow/
 .nextflow.log*
+.nextflow.pid
 work/
-test_run*.log
-test_nngenetree/
 
-# User-specific local configuration (contains machine-specific paths)
+# ----- Pipeline Cache and Output -----
+.nngenetree_cache/
+*_output/
+
+# ----- Data Directories (user-specific) -----
+by_interpro/
+by_ortholog_group/
+test_*/
+
+# ----- Log Files -----
+*.log
+*.err
+logs/
+dask_logs/
+hs_err_pid*.log
+
+# ----- Local Configuration -----
+.env
 conf/local.config
 
-# Claude Code files (local development only)
-CLAUDE.md
+# ----- Development Tools -----
 .claude/
-
-# Editor and filesystem temporary files
+CLAUDE.md
+.vscode/
+.idea/
 *.swp
 .*.swp
+
+# ----- Temporary Files -----
 .nfs*
+*.tmp
+*.bak
+
+# ----- Analysis Notebooks (contain results) -----
+*.ipynb
+
+# ----- Old/Deprecated -----
+old/
+nngenetree.sif
+.snakemake/
+
+# ----- OS Files -----
+.DS_Store
+Thumbs.db

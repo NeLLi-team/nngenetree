@@ -1,7 +1,7 @@
 [workspace]
 name = "nngenetree"
-version = "1.2.0"
-description = "NNGeneTree - Phylogenetic analysis and taxonomic classification pipeline"
+version = "2.0.0"
+description = "NNGeneTree - Phylogenetic analysis pipeline with Dask parallelization"
 authors = ["NNGeneTree Development Team"]
 channels = ["conda-forge", "bioconda"]
 platforms = ["linux-64"]
@@ -13,6 +13,8 @@ blast = ">=2.17.0,<3"
 mafft = ">=7.5,<8"
 trimal = ">=1.5.0,<2"
 iqtree = "==3.0.1"
+fasttree = ">=2.1.0,<3"
+taxonkit = ">=0.17,<1"
 
 # Python and scientific stack
 python = ">=3.11,<3.13"
@@ -28,41 +30,31 @@ tqdm = ">=4.65,<5"
 requests = ">=2.28,<3"
 click = ">=8.0,<9"
 
-nextflow = ">=25.04.7"
-openjdk = ">=11,<22"
-
 # System tools
 wget = ">=1.20,<2"
 gawk = ">=5.0,<6"
 
-# NCBI tools
-entrez-direct = ">=16.2"
+# NCBI tools (for optional standalone scripts)
 ncbi-datasets-cli = "*"
 
-# Orthology analysis
+# Orthology analysis (optional preprocessing)
 orthofinder = "==3.1.0"
 matplotlib = ">=3.10.6,<4"
 seaborn = ">=0.13.2,<0.14"
+prodigal-gv = ">=2.11.0,<3"
 
 [tasks]
-# Pipeline execution
-test = { cmd = "bash nngenetree test", description = "Run test pipeline with verification" }
-
 # Pipeline control tasks
-clean = { cmd = "rm -rf test_output log/*.out log/*.err work .nextflow* nextflow_*", description = "Clean test output and log files" }
-clean-all = { cmd = "rm -rf *_output log work .nextflow*", description = "Clean all output directories and logs" }
+clean = { cmd = "rm -rf *_output test_prefect_output dask_logs .nngenetree_cache", description = "Clean output directories" }
+clean-all = { cmd = "rm -rf *_output test_* dask_logs .nngenetree_cache logs/", description = "Clean all generated files" }
 
 # Development tasks
-lint = { cmd = "python -m flake8 bin/ --max-line-length 120", description = "Lint Python scripts" }
-format = { cmd = "python -m black bin/", description = "Format Python scripts with Black" }
+lint = { cmd = "python -m flake8 bin/ src/ --max-line-length 120", description = "Lint Python scripts" }
+format = { cmd = "python -m black bin/ src/", description = "Format Python scripts with Black" }
 
 # Setup and installation
 install = { cmd = "pixi install", description = "Install all dependencies" }
 shell = { cmd = "pixi shell", description = "Start a shell with the environment activated" }
-
-# Note: For custom analysis and OrthoFinder preprocessing, run scripts directly from bin/:
-# - python bin/parse_closest_neighbors.py -d <dir> -o <output>
-# - python bin/orthofinder_preprocess.py --genomes_faa_dir <dir> --output_dir <dir> [--target <filter>]
 
 [feature.dev.dependencies]
 flake8 = "*"
@@ -73,6 +65,44 @@ ipython = "*"
 [feature.dev.tasks]
 dev-shell = { cmd = "pixi shell --feature dev", description = "Start development shell with extra tools" }
 
+# Dask workflow feature (primary pipeline implementation)
+[feature.prefect.dependencies]
+# Dask for parallel/distributed execution
+dask = ">=2024.11,<2026"
+distributed = ">=2024.11,<2026"
+dask-jobqueue = ">=0.9,<1"
+
+# Configuration and CLI
+pydantic = ">=2.0,<3"
+pydantic-settings = ">=2.0,<3"
+python-dotenv = ">=1.0,<2"
+typer = ">=0.12,<1"
+rich = ">=13.0,<14"
+
+# Package installation
+pip = "*"
+
+# Testing
+pytest-asyncio = ">=0.23,<1"
+pytest-cov = ">=4.0,<6"
+
+# Type checking and linting
+mypy = ">=1.10,<2"
+ruff = ">=0.4,<1"
+
+[feature.prefect.tasks]
+# Pipeline execution
+run = { cmd = "python -m nngenetree run", description = "Run pipeline (use --help for options)" }
+run-local = { cmd = "python -m nngenetree run --mode local", description = "Run pipeline locally with Dask" }
+run-slurm = { cmd = "python -m nngenetree run --mode slurm", description = "Run pipeline on SLURM cluster" }
+info = { cmd = "python -m nngenetree info", description = "Show pipeline information" }
+
+# Development
+test = { cmd = "pytest src/nngenetree/tests/ -v", description = "Run pipeline tests" }
+lint = { cmd = "ruff check src/nngenetree/ && mypy src/nngenetree/", description = "Lint code" }
+format = { cmd = "ruff format src/nngenetree/", description = "Format code" }
+
 [environments]
 default = { features = [], solve-group = "default" }
 dev = { features = ["dev"], solve-group = "default" }
+prefect = { features = ["prefect", "dev"], solve-group = "default" }
