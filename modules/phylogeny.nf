@@ -12,7 +12,7 @@ process BUILD_TREE {
     time params.resources.build_tree.time
 
     input:
-    tuple val(sample_id), path(check_done), path(trimmed_alignment)
+    tuple val(sample_id), path(trimmed_alignment)
 
     output:
     tuple val(sample_id), path("final_tree.treefile"), emit: tree
@@ -49,6 +49,7 @@ process EXTRACT_CLOSEST_NEIGHBORS {
         --subjects ${unique_subjects} \\
         --output closest_neighbors.csv \\
         --num_neighbors ${params.closest_neighbors} \\
+        --self_hit_threshold ${params.self_hit_threshold} \\
         ${query_filter_cmd}
     """
 }

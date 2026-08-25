@@ -15,6 +15,9 @@ test_nngenetree/
 # User-specific local configuration (contains machine-specific paths)
 conf/local.config
 
+# Working notes
+tasks/
+
 # Claude Code files (local development only)
 CLAUDE.md
 .claude/

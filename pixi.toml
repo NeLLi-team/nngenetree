@@ -1,6 +1,6 @@
 [workspace]
 name = "nngenetree"
-version = "1.2.0"
+version = "1.3.0"
 description = "NNGeneTree - Phylogenetic analysis and taxonomic classification pipeline"
 authors = ["NNGeneTree Development Team"]
 channels = ["conda-forge", "bioconda"]
@@ -61,7 +61,7 @@ install = { cmd = "pixi install", description = "Install all dependencies" }
 shell = { cmd = "pixi shell", description = "Start a shell with the environment activated" }
 
 # Note: For custom analysis and OrthoFinder preprocessing, run scripts directly from bin/:
-# - python bin/parse_closest_neighbors.py -d <dir> -o <output>
+# - python bin/parse_closest_neighbors.py -d <dir> --subjects <unique_subjects.txt> --og <sample> -o <output>
 # - python bin/orthofinder_preprocess.py --genomes_faa_dir <dir> --output_dir <dir> [--target <filter>]
 
 [feature.dev.dependencies]

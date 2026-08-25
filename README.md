@@ -1,27 +1,27 @@
 # NNGeneTree
 
-[![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)](https://github.com/NeLLi-team/nngenetree)
+[![Version](https://img.shields.io/badge/version-1.3.0-blue.svg)](https://github.com/NeLLi-team/nngenetree)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](https://opensource.org/licenses/MIT)
 
-**NNGeneTree** is a phylogenetic analysis and taxonomic classification pipeline for protein sequences. It builds gene trees and finds the nearest neighbors of query sequences in the phylogenetic context, assigning taxonomy information for comprehensive evolutionary analysis.
+NNGeneTree builds a gene tree for each set of query proteins, finds the nearest neighbors of every query in that tree, and assigns NCBI taxonomy to the neighbors.
 
-Built with **Nextflow** - a dataflow-oriented workflow engine with built-in resume and reporting capabilities.
+The pipeline runs on Nextflow, which provides resume and execution reports.
 
 ---
 
-## Table of Contents
+## Table of contents
 
 - [Overview](#overview)
 - [Features](#features)
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [First-Time Setup](#first-time-setup)
+- [First-time setup](#first-time-setup)
 - [Usage](#usage)
 - [OrthoFinder Preprocessing](#orthofinder-preprocessing-optional)
-- [Pipeline Workflow](#pipeline-workflow)
-- [Output Description](#output-description)
+- [Pipeline workflow](#pipeline-workflow)
+- [Output description](#output-description)
 - [Configuration](#configuration)
-- [Scripts Documentation](#scripts-documentation)
+- [Scripts documentation](#scripts-documentation)
 - [License](#license)
 - [Contact](#contact)
 
@@ -29,20 +29,20 @@ Built with **Nextflow** - a dataflow-oriented workflow engine with built-in resu
 
 ## Overview
 
-NNGeneTree leverages the power of phylogenetic analysis to place query protein sequences in an evolutionary context and identify their closest neighbors in sequence space. This approach provides valuable insights into the functional and evolutionary relationships between proteins, complementing traditional similarity-based annotation methods.
+NNGeneTree places query proteins in a tree together with their closest database hits and reports the nearest neighbors by tree distance. Tree distance complements similarity search, which ranks hits by alignment score alone.
 
 ---
 
 ## Features
 
-- **Automated workflow** from protein sequences to annotated phylogenetic trees
-- **Smart neighbor selection** based on phylogenetic distance
-- **NCBI taxonomy integration** for comprehensive classification
-- **Statistical analysis** of phylogenetic relationships
-- **Tree visualizations** with taxonomic annotations
-- **Detailed logging and reports** for each analysis step
-- **Local and HPC support** (SLURM cluster deployment)
-- **Modular design** with Pixi package management
+- Automated workflow from protein sequences to annotated gene trees
+- Neighbor selection by phylogenetic distance
+- NCBI taxonomy for every hit in the tree
+- Distance statistics for each query
+- Tree images and iTOL annotation files
+- Nextflow execution reports for each run
+- Local and SLURM execution
+- Environment managed by Pixi
 
 ---
 
@@ -69,7 +69,7 @@ The pipeline automatically manages all required tools through Pixi:
 
 ## Installation
 
-### Quick Start
+### Quick start
 
 ```bash
 # Clone the repository
@@ -87,11 +87,11 @@ All dependencies are now installed and managed by Pixi.
 
 ---
 
-## First-Time Setup
+## First-time setup
 
 After installation, you must configure the database path for your system.
 
-### Option 1: Configuration File (Recommended)
+### Option 1: Configuration file (recommended)
 
 ```bash
 # Copy the template
@@ -115,7 +115,7 @@ params {
 }
 ```
 
-### Option 2: Environment Variables
+### Option 2: Environment variables
 
 ```bash
 # Add to your ~/.bashrc or ~/.zshrc
@@ -123,7 +123,7 @@ export NR_DATABASE=/path/to/your/nr/database
 export ENTREZ_EMAIL=your.email@example.com
 ```
 
-### SLURM Configuration (Optional)
+### SLURM configuration (optional)
 
 If running on a SLURM cluster, add queue settings to `conf/local.config`:
 
@@ -134,7 +134,7 @@ process {
 }
 ```
 
-### Execution from Anywhere (Optional)
+### Execution from anywhere (optional)
 
 To run `nngenetree` from any directory:
 
@@ -151,11 +151,13 @@ source ~/.bashrc
 cd /tmp && nngenetree test
 ```
 
+Each task uses the tools in the repository's `.pixi/envs/default/bin` directory and unsets `MAFFT_BINARIES`. Your shell environment doesn't affect the run.
+
 ---
 
 ## Usage
 
-### Running the Pipeline
+### Running the pipeline
 
 ```bash
 # Test mode with small built-in database
@@ -166,20 +168,22 @@ nngenetree my_input_dir local
 
 # Run on SLURM cluster (default)
 nngenetree my_input_dir slurm
+
+# Extra arguments are forwarded to Nextflow
+nngenetree my_data local --blast_hits 50 --blast_db /path/to/nr
 ```
 
-**Note:** Use `nngenetree` directly if installed to PATH, otherwise use `bash nngenetree`.
+If `nngenetree` is not on your `PATH`, run `bash nngenetree` instead.
 
-### Nextflow Features
+### Nextflow features
 
-- **Automatic resume on failure** (`-resume`)
-- **HTML execution reports** with resource usage
-- **Built-in timeline and DAG visualizations**
-- **Cloud-ready** (AWS, Azure, Google Cloud)
+- Resume after a failure with `-resume`
+- HTML execution report with resource usage
+- Timeline and DAG files for each run
 
 ---
 
-## OrthoFinder Preprocessing (Optional)
+## OrthoFinder preprocessing (optional)
 
 NNGeneTree includes an optional preprocessing script for OrthoFinder integration. This runs separately before the main pipeline and allows you to:
 
@@ -203,7 +207,7 @@ Example:
 MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTA...
 ```
 
-### Running OrthoFinder Preprocessing
+### Running OrthoFinder preprocessing
 
 ```bash
 # Activate the pixi environment
@@ -221,7 +225,7 @@ python bin/orthofinder_preprocess.py \
   --target "target_substring"
 ```
 
-### Complete Workflow Example
+### Complete workflow example
 
 ```bash
 # Step 1: Run OrthoFinder preprocessing
@@ -237,7 +241,7 @@ exit
 nngenetree my_orthogroups local
 ```
 
-### OrthoFinder Script Options
+### OrthoFinder script options
 
 | Option | Description |
 |--------|-------------|
@@ -250,7 +254,7 @@ nngenetree my_orthogroups local
 
 ---
 
-## Pipeline Workflow
+## Pipeline workflow
 
 ```
 INPUT FASTA FILES (.faa)
@@ -262,7 +266,7 @@ INPUT FASTA FILES (.faa)
          |
          v
 +---------------------+
-| PROCESS & VALIDATE  |  Extract unique subjects and validate output
+| PROCESS             |  Extract unique subjects; skip samples with < 2 hits
 +---------------------+
          |
          v
@@ -325,17 +329,16 @@ INPUT FASTA FILES (.faa)
 
 ---
 
-## Output Description
+## Output description
 
-Results are saved in `<input_dir>_output/`. For each input FASTA file:
+The pipeline writes results to `<input_dir>_output/`. For each input FASTA file:
 
-### Sample Directory Structure
+### Sample directory structure
 
 ```
 <sample>/
 ├── blast_results.m8              # DIAMOND BLAST tabular output
 ├── unique_subjects.txt           # List of unique hit accessions
-├── check_blast_output.done       # Validation checkpoint
 ├── extracted_hits.faa            # Sequences of BLAST hits
 ├── combined_sequences.faa        # Combined query and hit sequences
 ├── aln/
@@ -345,30 +348,24 @@ Results are saved in `<input_dir>_output/`. For each input FASTA file:
 │   ├── final_tree.treefile       # Newick tree file
 │   ├── final_tree.iqtree         # IQ-TREE log file
 │   ├── decorated_tree.png        # Visualization with taxonomy
-│   └── tree_stats.tab            # Tree statistics
+│   └── tree_stats.tab            # Tree statistics (one row per input query)
 ├── closest_neighbors.csv         # Neighbors with phylogenetic distances
 ├── closest_neighbors_with_taxonomy.csv  # Enhanced CSV with NCBI taxonomy
-├── taxonomy_assignments.txt      # Taxonomy information (tabular)
-├── placement_results.json        # Detailed neighbor info
+├── taxonomy_assignments.txt      # Taxonomy information (tabular); OG column is the sample name
+├── placement_results.json        # Neighbor details with NCBI Entrez taxonomy
 ├── placement_results.csv         # Placement results (CSV format)
 └── itol/                         # Interactive Tree of Life files
     ├── itol_labels.txt
-    ├── itol_colors.txt
-    └── itol_ranges.txt
+    ├── itol_branch_colors.txt
+    ├── itol_query_circles.txt
+    └── itol_colorstrip.txt
 ```
 
-### Aggregated Output
+The pipeline skips samples with fewer than 2 unique DIAMOND subjects, logs a warning, and continues with the remaining samples.
+
+### Aggregated output
 
 - `combined_placement_results.json`: All placement results across samples
-
-### Completion Log
-
-A log file (`<input_dir>_output_completion.log`) contains:
-
-- Pipeline version and runtime information
-- BLAST hit counts for each sample
-- Taxonomy distribution statistics (domains, phyla, classes, orders, families, genera)
-- Tree generation status
 
 ---
 
@@ -382,13 +379,17 @@ A log file (`<input_dir>_output_completion.log`) contains:
 | `output_dir` | Override default output directory | `{input_dir}_output` |
 | `blast_db` | Path to BLAST/DIAMOND database | (from local.config) |
 | `blast_hits` | Number of BLAST hits per query | 5 |
+| `min_hits` | Warn when a query has fewer BLAST hits than this | 5 |
+| `diamond_sensitivity` | Extra DIAMOND flag, for example `--sensitive` | (empty: fast mode) |
+| `self_hit_threshold` | Distance below which a neighbor is treated as a self-hit | 0.001 |
+| `entrez_email` | Email for NCBI Entrez; exported as `ENTREZ_EMAIL` to tasks | (from local.config) |
 | `closest_neighbors` | Number of closest neighbors to extract | 5 |
 | `query_filter` | Comma-separated query prefixes to filter | - |
 | `query_prefixes` | Prefixes for phylogenetic placement | `Hype,Klos` |
 | `num_neighbors_placement` | Neighbors for placement | 5 |
 | `itol_tax_level` | Taxonomy level for iTOL | `class` |
 
-### Resource Configuration
+### Resource configuration
 
 ```groovy
 params {
@@ -403,7 +404,7 @@ params {
 }
 ```
 
-### Execution Profiles
+### Execution profiles
 
 | Profile | Description |
 |---------|-------------|
@@ -412,7 +413,7 @@ params {
 | `slurm` | SLURM cluster execution |
 | `test` | Test profile with small database |
 
-### Override Configuration
+### Override configuration
 
 ```bash
 # Use custom config file
@@ -431,7 +432,7 @@ nextflow run main.nf \
 
 ---
 
-## Pixi Tasks
+## Pixi tasks
 
 View all tasks with `pixi task list`:
 
@@ -446,7 +447,7 @@ View all tasks with `pixi task list`:
 
 ---
 
-## Scripts Documentation
+## Scripts documentation
 
 All scripts are in `bin/` and available in PATH when using `pixi shell`.
 
@@ -455,7 +456,7 @@ All scripts are in `bin/` and available in PATH when using `pixi shell`.
 Process closest neighbors CSV files and add NCBI taxonomy:
 
 ```bash
-python bin/parse_closest_neighbors.py -d <directory> -o <output_file>
+python bin/parse_closest_neighbors.py -d <directory> --subjects <unique_subjects.txt> --og <sample> -o <output_file>
 ```
 
 ### extract_closest_neighbors.py
@@ -468,7 +469,8 @@ python bin/extract_closest_neighbors.py \
   --query <query_file> \
   --subjects <subjects_file> \
   --output <output_file> \
-  --num_neighbors <N>
+  --num_neighbors <N> \
+  --self_hit_threshold <distance>
 ```
 
 ### extract_phylogenetic_neighbors.py
@@ -479,6 +481,7 @@ Extract phylogenetic neighbors with taxonomy for specific query prefixes:
 python bin/extract_phylogenetic_neighbors.py \
   --tree <tree_file> \
   --query-prefixes <prefixes> \
+  --taxonomy <taxonomy_assignments.txt> \
   --output-json <json_file> \
   --output-csv <csv_file> \
   --num-neighbors <N>
@@ -488,6 +491,7 @@ python bin/extract_phylogenetic_neighbors.py \
 |--------|-------------|
 | `--tree` | Path to tree file |
 | `--query-prefixes` | Comma-separated query prefixes (e.g., "Hype,Klos") |
+| `--taxonomy` | Path to `taxonomy_assignments.txt` (required) |
 | `--output-json` | Output JSON file |
 | `--output-csv` | Output CSV file |
 | `--num-neighbors` | Neighbors per query (default: 5) |

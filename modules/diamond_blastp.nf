@@ -25,6 +25,7 @@ process DIAMOND_BLASTP {
         -o blast_results.m8 \\
         -p ${task.cpus} \\
         -k ${params.blast_hits} \\
-        --outfmt 6
+        --outfmt 6 \\
+        ${params.diamond_sensitivity}
     """
 }

@@ -13,7 +13,7 @@ process ALIGN_SEQUENCES {
     disk "${params.resources.align_sequences.disk_mb} MB"
 
     input:
-    tuple val(sample_id), path(check_done), path(combined_sequences)
+    tuple val(sample_id), path(combined_sequences)
 
     output:
     tuple val(sample_id), path("aligned_sequences.msa"), emit: aligned_sequences
@@ -31,7 +31,7 @@ process TRIM_ALIGNMENT {
     cpus 1
 
     input:
-    tuple val(sample_id), path(check_done), path(aligned_sequences)
+    tuple val(sample_id), path(aligned_sequences)
 
     output:
     tuple val(sample_id), path("trimmed_alignment.msa"), emit: trimmed_alignment

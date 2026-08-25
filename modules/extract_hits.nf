@@ -12,7 +12,7 @@ process EXTRACT_HITS {
     time params.resources.extract_hits.time
 
     input:
-    tuple val(sample_id), path(check_done), path(unique_subjects)
+    tuple val(sample_id), path(unique_subjects)
 
     output:
     tuple val(sample_id), path("extracted_hits.faa"), emit: extracted_hits

@@ -10,7 +10,7 @@ process EXTRACT_PHYLOGENETIC_PLACEMENT {
     cpus 1
 
     input:
-    tuple val(sample_id), path(tree)
+    tuple val(sample_id), path(tree), path(taxonomy)
 
     output:
     tuple val(sample_id), path("placement_results.json"), emit: placement_json
@@ -20,6 +20,7 @@ process EXTRACT_PHYLOGENETIC_PLACEMENT {
     """
     extract_phylogenetic_neighbors.py \\
         --tree ${tree} \\
+        --taxonomy ${taxonomy} \\
         --query-prefixes ${params.query_prefixes} \\
         --output-json placement_results.json \\
         --output-csv placement_results.csv \\
@@ -44,8 +45,6 @@ process COMBINE_PLACEMENT_RESULTS {
     """
     #!/usr/bin/env python3
     import json
-    import glob
-    from pathlib import Path
 
     combined_results = {
         "orthogroups": [],
@@ -56,13 +55,11 @@ process COMBINE_PLACEMENT_RESULTS {
         }
     }
 
-    # Get all staged placement files
-    placement_files = sorted(glob.glob("placement_*.json"))
-    # Parse sample_ids from Nextflow list format: [test1, test2]
-    sample_ids_str = "${sample_ids}"
-    sample_ids = [s.strip() for s in sample_ids_str.strip('[]').split(',')]
+    # Staged files placement_1.json, placement_2.json, ... follow sample_ids order
+    sample_ids = ${groovy.json.JsonOutput.toJson(sample_ids)}
 
-    for sample_id, placement_file in zip(sample_ids, placement_files):
+    for i, sample_id in enumerate(sample_ids):
+        placement_file = f"placement_{i+1}.json"
         og_name = sample_id
 
         with open(placement_file, 'r') as f:
