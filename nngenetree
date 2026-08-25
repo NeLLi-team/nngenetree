@@ -4,8 +4,8 @@
 ##############################################
 # Usage:
 #   nngenetree test                      # Run test mode with verification
-#   nngenetree <input_directory> local   # Run locally
-#   nngenetree <input_directory> slurm   # Run on SLURM (default)
+#   nngenetree <input_directory> local [extra nextflow args]   # Run locally
+#   nngenetree <input_directory> slurm [extra nextflow args]   # Run on SLURM (default)
 #
 # Examples:
 #   nngenetree test                  # Test with small database
@@ -27,17 +27,19 @@ cd "${REPO_ROOT}"
 
 # Check arguments
 if [ $# -lt 1 ]; then
-    echo "Usage: $0 test | <input_directory> [local|slurm]"
+    echo "Usage: $0 test | <input_directory> [local|slurm] [extra nextflow args]"
     echo ""
     echo "Arguments:"
     echo "  test             - Run test mode with built-in verification"
     echo "  input_directory  - Directory containing .faa files"
     echo "  execution_mode   - 'local' for local execution, 'slurm' for cluster (default: slurm)"
+    echo "  extra args       - forwarded to nextflow run (e.g. --blast_db /path/to/nr)"
     echo ""
     echo "Examples:"
     echo "  $0 test"
     echo "  $0 my_data local"
     echo "  $0 my_data slurm"
+    echo "  $0 my_data local --blast_db /path/to/nr"
     exit 1
 fi
 
@@ -61,7 +63,7 @@ if [ "$1" = "test" ]; then
 
     # Run test pipeline
     echo "Running test pipeline..."
-    pixi run nextflow run main.nf -profile test -resume
+    pixi run nextflow run main.nf -profile test -resume "${@:2}"
 
     echo ""
     echo "============================================"
@@ -105,7 +107,13 @@ if [ "$1" = "test" ]; then
 else
     # Production mode
     INPUT_DIR_ARG="$1"
-    EXECUTION_MODE="${2:-slurm}"
+    if [[ "${2:-}" == --* ]]; then
+        EXECUTION_MODE="slurm"
+        EXTRA_ARGS=("${@:2}")
+    else
+        EXECUTION_MODE="${2:-slurm}"
+        EXTRA_ARGS=("${@:3}")
+    fi
 
     # Convert relative path to absolute (relative to caller's PWD, not repo)
     if [[ "$INPUT_DIR_ARG" = /* ]]; then
@@ -141,13 +149,13 @@ else
         pixi run nextflow run main.nf \
             --input_dir "$INPUT_DIR" \
             -profile local \
-            -resume
+            -resume "${EXTRA_ARGS[@]}"
     elif [ "$EXECUTION_MODE" = "slurm" ]; then
         echo "Running pipeline on SLURM cluster..."
         pixi run nextflow run main.nf \
             --input_dir "$INPUT_DIR" \
             -profile slurm \
-            -resume
+            -resume "${EXTRA_ARGS[@]}"
     else
         echo "Error: Invalid execution mode '$EXECUTION_MODE'. Use 'local' or 'slurm'"
         exit 1

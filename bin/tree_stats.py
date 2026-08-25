@@ -14,13 +14,15 @@ def calculate_tree_stats(tree_file, taxonomy_file, query_file, output_file):
   # Load the tree
   tree = Tree(tree_file)
 
-  # Load taxonomy assignments
+  # Load taxonomy assignments (OG\tAccession\tTaxonomy, header line; OG may be empty)
   taxonomy_dict = {}
   with open(taxonomy_file, 'r') as f:
       for line in f:
-          parts = line.strip().split('\t')
-          if len(parts) == 2:
-              taxonomy_dict[parts[0]] = parts[1]
+          parts = line.rstrip('\n').split('\t')
+          if len(parts) < 3 or parts[1] == 'Accession':
+              continue
+          taxonomy_dict[parts[1]] = parts[2]
+          taxonomy_dict[parts[1].split('.')[0]] = parts[2]
 
   # Load query sequences
   queries = set()
@@ -32,20 +34,29 @@ def calculate_tree_stats(tree_file, taxonomy_file, query_file, output_file):
   results = []
 
   for query in queries:
-      query_node = tree.search_nodes(name=query)[0]
+      nodes = tree.search_nodes(name=query)
+      if not nodes:
+          print(f"Warning: query {query} not found in tree, skipped", file=sys.stderr)
+          continue
+      query_node = nodes[0]
          
       # 1. Nearest query neighbor
       other_queries = [node for node in tree.iter_leaves() if node.name in queries and node.name != query]
       other_queries.sort(key=lambda n: query_node.get_distance(n))
-      nearest_query = other_queries[0]
-      nearest_query_distance = query_node.get_distance(nearest_query)
+      if other_queries:
+          query_distances = [query_node.get_distance(n) for n in other_queries]
+          nearest_query = other_queries[0].name
+          nearest_query_distance = query_distances[0]
 
-      # Mean distance to 3 closest queries
-      mean_distance_3_closest_queries = np.mean([query_node.get_distance(n) for n in other_queries[:3]])
-      std_distance_3_closest_queries = np.std([query_node.get_distance(n) for n in other_queries[:3]])
+          # Mean distance to 3 closest queries
+          mean_distance_3_closest_queries = np.mean(query_distances[:3])
+          std_distance_3_closest_queries = np.std(query_distances[:3])
 
-      # Average distance to all other queries
-      avg_distance_all_queries = np.mean([query_node.get_distance(n) for n in other_queries])
+          # Average distance to all other queries
+          avg_distance_all_queries = np.mean(query_distances)
+      else:
+          nearest_query = nearest_query_distance = 'na'
+          mean_distance_3_closest_queries = std_distance_3_closest_queries = avg_distance_all_queries = 'na'
 
       # 2. Nearest subject neighbor for each category
       category_neighbors = {cat: {'distance': float('inf'), 'taxonomy': ''} for cat in ['Bacteria', 'Archaea', 'Eukaryota', 'Viruses']}
@@ -82,7 +93,7 @@ def calculate_tree_stats(tree_file, taxonomy_file, query_file, output_file):
 
       results.append({
           'query': query,
-          'nearest_query': nearest_query.name,
+          'nearest_query': nearest_query,
           'nearest_query_distance': nearest_query_distance,
           'mean_distance_3_closest_queries': mean_distance_3_closest_queries,
           'std_distance_3_closest_queries': std_distance_3_closest_queries,

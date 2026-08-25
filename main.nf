@@ -6,7 +6,7 @@
  * Phylogenetic analysis and taxonomic classification of protein sequences
  *
  * Converted from Snakemake to Nextflow
- * Version: 1.0.0
+ * Version: see manifest in nextflow.config
  */
 
 nextflow.enable.dsl=2
@@ -14,7 +14,6 @@ nextflow.enable.dsl=2
 // Import process modules
 include { DIAMOND_BLASTP } from './modules/diamond_blastp'
 include { PROCESS_BLAST_RESULTS } from './modules/process_blast'
-include { CHECK_BLAST_OUTPUT } from './modules/process_blast'
 include { EXTRACT_HITS } from './modules/extract_hits'
 include { COMBINE_SEQUENCES } from './modules/combine_sequences'
 include { ALIGN_SEQUENCES } from './modules/alignment'
@@ -27,14 +26,13 @@ include { CALCULATE_TREE_STATS } from './modules/visualization'
 include { EXTRACT_PHYLOGENETIC_PLACEMENT } from './modules/placement'
 include { COMBINE_PLACEMENT_RESULTS } from './modules/placement'
 
-// Validate required configuration (skip for test profile which has its own database)
-def isTestProfile = workflow.profile?.contains('test')
-if (!isTestProfile && (!params.blast_db || params.blast_db == 'null' || params.blast_db.toString().contains('/path/to/'))) {
+// Validate required configuration: the DIAMOND database must exist
+if (!params.blast_db || params.blast_db == 'null' || !file("${params.blast_db}.dmnd").exists()) {
     error """
     ╔══════════════════════════════════════════════════════════════════╗
-    ║  ERROR: Database path not configured!                            ║
+    ║  ERROR: DIAMOND database not found: ${params.blast_db}.dmnd
+    ║  Configure the database path using ONE of:                       ║
     ╠══════════════════════════════════════════════════════════════════╣
-    ║  Please configure your NR database path using ONE of:            ║
     ║                                                                  ║
     ║  Option 1: Create conf/local.config (recommended)                ║
     ║    cp conf/local.config.template conf/local.config               ║
@@ -54,7 +52,7 @@ log.info """
 ============================================
   NNGeneTree Pipeline (Nextflow)
 ============================================
-  Version:  1.0.0
+  Version:  ${workflow.manifest.version}
   Input:    ${params.input_dir}
   Output:   ${params.output_dir}
   Database: ${params.blast_db}
@@ -73,88 +71,71 @@ workflow {
         .count()
         .subscribe { count -> log.info "Found ${count} input FASTA file(s)" }
 
-    // Re-create channel for processing (consumed by count)
-    input_fasta_ch = Channel
-        .fromPath("${params.input_dir}/*.faa")
-        .map { file -> tuple(file.baseName, file) }
-
     // Step 1: DIAMOND BLASTP search
     DIAMOND_BLASTP(input_fasta_ch)
 
     // Step 2: Process BLAST results to extract unique subjects
     PROCESS_BLAST_RESULTS(DIAMOND_BLASTP.out.blast_results)
 
-    // Step 3: Check BLAST output validity
-    CHECK_BLAST_OUTPUT(PROCESS_BLAST_RESULTS.out.unique_subjects)
+    // Step 3: Gate on BLAST output - skip samples with fewer than 2 unique subjects
+    blast_gate = PROCESS_BLAST_RESULTS.out.unique_subjects
+        .branch {
+            ok: it[1].countLines() >= 2
+            skip: true
+        }
+    blast_gate.skip.subscribe { log.warn "Skipping ${it[0]}: fewer than 2 unique BLAST subjects" }
+    unique_subjects_ch = blast_gate.ok
 
     // Step 4: Extract hit sequences from database
-    EXTRACT_HITS(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(PROCESS_BLAST_RESULTS.out.unique_subjects)
-    )
+    EXTRACT_HITS(unique_subjects_ch)
 
     // Step 5: Combine query and hit sequences (with deduplication)
     COMBINE_SEQUENCES(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(input_fasta_ch, by: 0)
-            .map { sample_id, check, query_file -> tuple(sample_id, query_file) }
+        input_fasta_ch
             .join(EXTRACT_HITS.out.extracted_hits)
     )
 
     // Step 6: Align sequences with MAFFT
-    ALIGN_SEQUENCES(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(COMBINE_SEQUENCES.out.combined_sequences)
-    )
+    ALIGN_SEQUENCES(COMBINE_SEQUENCES.out.combined_sequences)
 
     // Step 7: Trim alignment with TrimAl
-    TRIM_ALIGNMENT(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(ALIGN_SEQUENCES.out.aligned_sequences)
-    )
+    TRIM_ALIGNMENT(ALIGN_SEQUENCES.out.aligned_sequences)
 
     // Step 8: Build phylogenetic tree with IQ-TREE
-    BUILD_TREE(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(TRIM_ALIGNMENT.out.trimmed_alignment)
-    )
+    BUILD_TREE(TRIM_ALIGNMENT.out.trimmed_alignment)
 
     // Step 9: Extract closest neighbors from tree
     EXTRACT_CLOSEST_NEIGHBORS(
         input_fasta_ch
-            .join(PROCESS_BLAST_RESULTS.out.unique_subjects)
+            .join(unique_subjects_ch)
             .join(BUILD_TREE.out.tree)
     )
 
     // Step 10: Assign NCBI taxonomy to neighbors
-    ASSIGN_TAXONOMY(EXTRACT_CLOSEST_NEIGHBORS.out.closest_neighbors)
+    ASSIGN_TAXONOMY(
+        EXTRACT_CLOSEST_NEIGHBORS.out.closest_neighbors
+            .join(unique_subjects_ch)
+    )
 
     // Step 11: Decorate tree with taxonomy and generate visualization
     DECORATE_TREE(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(BUILD_TREE.out.tree)
+        BUILD_TREE.out.tree
             .join(ASSIGN_TAXONOMY.out.taxonomy)
-            .join(ASSIGN_TAXONOMY.out.updated_csv)
-            .join(input_fasta_ch, by: 0)
-            .map { sample_id, check, tree, taxonomy, csv, query ->
-                tuple(sample_id, tree, taxonomy, csv, query)
-            }
+            .join(input_fasta_ch)
     )
 
     // Step 12: Calculate tree statistics
     CALCULATE_TREE_STATS(
-        CHECK_BLAST_OUTPUT.out.check_done
-            .join(BUILD_TREE.out.tree)
+        BUILD_TREE.out.tree
             .join(ASSIGN_TAXONOMY.out.taxonomy)
-            .join(ASSIGN_TAXONOMY.out.updated_csv)
-            .join(COMBINE_SEQUENCES.out.combined_sequences)
-            .map { sample_id, check, tree, taxonomy, csv, combined ->
-                tuple(sample_id, tree, taxonomy, csv, combined)
-            }
+            .join(input_fasta_ch)
     )
 
     // Step 13: Extract phylogenetic placement with taxonomy
-    EXTRACT_PHYLOGENETIC_PLACEMENT(BUILD_TREE.out.tree)
+    EXTRACT_PHYLOGENETIC_PLACEMENT(
+        BUILD_TREE.out.tree
+            .join(ASSIGN_TAXONOMY.out.taxonomy)
+    )
 
     // Step 14: Combine all placement results
     all_placements = EXTRACT_PHYLOGENETIC_PLACEMENT.out.placement_json

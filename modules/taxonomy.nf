@@ -10,7 +10,7 @@ process ASSIGN_TAXONOMY {
     cpus 1
 
     input:
-    tuple val(sample_id), path(closest_neighbors)
+    tuple val(sample_id), path(closest_neighbors), path(unique_subjects)
 
     output:
     tuple val(sample_id), path("taxonomy_assignments.txt"), emit: taxonomy
@@ -20,11 +20,9 @@ process ASSIGN_TAXONOMY {
     """
     parse_closest_neighbors.py \\
         -d . \\
+        --subjects ${unique_subjects} \\
+        --og ${sample_id} \\
         -o taxonomy_assignments.txt \\
         > taxonomy_assignment.log 2>&1
-
-    # Ensure output files exist even if script has issues
-    touch taxonomy_assignments.txt
-    touch closest_neighbors_with_taxonomy.csv
     """
 }

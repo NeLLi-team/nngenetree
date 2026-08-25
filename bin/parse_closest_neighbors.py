@@ -21,41 +21,57 @@ import time
 import tempfile
 import shutil
 import re
+import traceback
 
 # Set email for NCBI Entrez (from environment variable or default)
 Entrez.email = os.environ.get('ENTREZ_EMAIL', 'nngenetree-user@example.com')
 
-def fetch_taxonomy(accession: str) -> str:
+def fetch_taxonomy_batch(accessions: List[str], batch_size: int = 50) -> Dict[str, str]:
     """
-    Fetch taxonomy information for a given accession number.
-    
+    Fetch taxonomy information for a list of accession numbers in batches.
+
     Parameters
     ----------
-    accession : str
-        NCBI protein accession number
-        
+    accessions : List[str]
+        NCBI protein accession numbers
+    batch_size : int
+        Number of ids per efetch call
+
     Returns
     -------
-    str
-        Taxonomy string or error message
+    Dict[str, str]
+        Mapping of accession -> taxonomy string (or 'Unknown...' on failure)
     """
-    try:
-        # Remove version number if present
-        accession = accession.split('.')[0]
-        handle = Entrez.efetch(db='protein', id=accession, rettype='gb', retmode='xml')
-        record = Entrez.read(handle)
-        taxonomy = record[0]['GBSeq_taxonomy']
-        handle.close()
+    taxonomy_assignments = {}
+    for start in tqdm(range(0, len(accessions), batch_size), desc="Fetching taxonomy"):
+        chunk = accessions[start:start + batch_size]
+        try:
+            handle = Entrez.efetch(db='protein', id=','.join(chunk), rettype='gb', retmode='xml')
+            records = Entrez.read(handle)
+            handle.close()
+
+            # Map returned records to accessions by their accession.version, never by position
+            returned = {}
+            for record in records:
+                acc_ver = record.get('GBSeq_accession-version', '')
+                taxonomy = record.get('GBSeq_taxonomy', '')
+                # Clean up taxonomy string for easier parsing
+                # Replace spaces with underscores in the taxonomy string
+                taxonomy = taxonomy.replace('; ', ';')
+                taxonomy = taxonomy.replace(' ', '_')
+                returned[acc_ver] = taxonomy
+                returned[acc_ver.split('.')[0]] = taxonomy
+
+            for accession in chunk:
+                taxonomy_assignments[accession] = (returned.get(accession)
+                                                   or returned.get(accession.split('.')[0])
+                                                   or 'Unknown')
+        except Exception as e:
+            for accession in chunk:
+                taxonomy_assignments[accession] = f"Unknown ({str(e)})"  # If taxonomy lookup fails, return Unknown with error message
         time.sleep(0.34)  # Rate limit to comply with NCBI's guidelines (3 requests per second)
-        
-        # Clean up taxonomy string for easier parsing
-        # Replace spaces with underscores in the taxonomy string
-        taxonomy = taxonomy.replace('; ', ';')
-        taxonomy = taxonomy.replace(' ', '_')
-        
-        return taxonomy
-    except Exception as e:
-        return f"Unknown ({str(e)})"  # If taxonomy lookup fails, return Unknown with error message
+
+    return taxonomy_assignments
 
 def process_csv_file(file_path: Path) -> List[Dict[str, str]]:
     """
@@ -138,7 +154,7 @@ def process_csv_file(file_path: Path) -> List[Dict[str, str]]:
                 
     except Exception as e:
         print(f"Error processing CSV file {file_path}: {e}", file=sys.stderr)
-        print(f"Stack trace: {import_module('traceback').format_exc()}", file=sys.stderr)
+        print(f"Stack trace: {traceback.format_exc()}", file=sys.stderr)
         return []
 
 def process_old_format_file(file_path: Path) -> List[Dict[str, str]]:
@@ -327,6 +343,8 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument('-d', '--dir', default='.', help='Base directory to search for closest_neighbors.csv files')
     parser.add_argument('-o', '--output', help='Output file for taxonomy assignments in TSV format')
+    parser.add_argument('--subjects', help='File with one accession per line to look up in addition to the CSV subjects')
+    parser.add_argument('--og', help='OG name for the OG column of the output TSV (default: basename of --dir)')
     parser.add_argument('-f', '--force', action='store_true', help='Force overwriting existing taxonomy information')
     parser.add_argument('-v', '--verbose', action='store_true', help='Print verbose information')
     
@@ -337,7 +355,6 @@ def main():
     args = parse_args()
     
     # Find and process CSV files
-    taxonomy_assignments = {}
     all_rows = []
     
     print(f"Searching for closest_neighbors.csv files in {args.dir}", file=sys.stderr)
@@ -348,20 +365,26 @@ def main():
     
     # Get unique accessions
     unique_accessions = get_unique_accessions(all_rows)
-    
+    if args.subjects:
+        with open(args.subjects, 'r') as f:
+            subjects = set(line.strip() for line in f if line.strip())
+        print(f"Read {len(subjects)} subject IDs from {args.subjects}", file=sys.stderr)
+        unique_accessions |= subjects
+
     # Fetch taxonomy for each accession
     print(f"Fetching taxonomy information for {len(unique_accessions)} accessions", file=sys.stderr)
-    for accession in tqdm(unique_accessions, desc="Fetching taxonomy"):
-        taxonomy = fetch_taxonomy(accession)
-        taxonomy_assignments[accession] = taxonomy
-    
+    taxonomy_assignments = fetch_taxonomy_batch(sorted(unique_accessions))
+
+    if unique_accessions and all(t.startswith('Unknown') for t in taxonomy_assignments.values()):
+        print("Error: taxonomy lookup failed for every accession (Entrez/network failure?)", file=sys.stderr)
+        sys.exit(1)
+
     # Write taxonomy assignments to a file
     if args.output:
+        og_name = args.og if args.og else Path(args.dir).name
         with open(args.output, 'w') as f:
             f.write("OG\tAccession\tTaxonomy\n")
             for accession, taxonomy in taxonomy_assignments.items():
-                # Extract OG name from file path
-                og_name = Path(args.dir).name
                 f.write(f"{og_name}\t{accession}\t{taxonomy}\n")
         print(f"Wrote taxonomy assignments to {args.output}", file=sys.stderr)
     

@@ -50,7 +50,7 @@ def read_subject_ids(subjects_file):
         sys.stderr.write(f"Error reading subjects file {subjects_file}: {str(e)}\n")
         return set()
 
-def extract_closest_neighbors(tree_file, query_file, subjects_file, output_file, gene_name, num_neighbors=10, query_filter=None):
+def extract_closest_neighbors(tree_file, query_file, subjects_file, output_file, gene_name, num_neighbors=10, query_filter=None, self_hit_threshold=0.001):
     """
     Extract the N closest neighbors to each query sequence from a phylogenetic tree.
     
@@ -70,6 +70,9 @@ def extract_closest_neighbors(tree_file, query_file, subjects_file, output_file,
         Number of closest neighbors to extract per query
     query_filter : str
         Comma-separated list of query prefixes to filter by
+    self_hit_threshold : float
+        Distances at or below this are treated as self-hits when choosing the
+        reference distance for the 2x window (the neighbors are still listed)
     """
     try:
         # Check if tree file exists and is not empty
@@ -168,9 +171,12 @@ def extract_closest_neighbors(tree_file, query_file, subjects_file, output_file,
             # Sort by distance and take the N closest
             distances.sort()
             
-            # Get the first distance as reference
+            # Reference distance for the 2x window: the first distance above the
+            # self-hit threshold. An identical sequence in the DB gives ~0 and would
+            # collapse the window to that single hit. Fallback: the last distance (keep all).
             if distances:
-                first_distance = distances[0][0]
+                first_distance = next((dist for dist, name in distances if dist > self_hit_threshold),
+                                      distances[-1][0])
                 valid_distances = []
                 
                 # Only include distances that are not more than double the first distance
@@ -217,7 +223,8 @@ def main():
     parser.add_argument('--output', required=True, help='Path to the output file')
     parser.add_argument('--num_neighbors', type=int, default=10, help='Number of closest neighbors to extract per query')
     parser.add_argument('--query_filter', help='Comma-separated list of query prefixes to filter by')
-    
+    parser.add_argument('--self_hit_threshold', type=float, default=0.001, help='Distance threshold below which a hit is treated as a self-hit when choosing the reference distance')
+
     args = parser.parse_args()
     
     # Extract gene name from query file path
@@ -236,7 +243,8 @@ def main():
         args.output,
         gene_name, # Pass gene name
         args.num_neighbors,
-        args.query_filter
+        args.query_filter,
+        args.self_hit_threshold
     )
 
 if __name__ == "__main__":

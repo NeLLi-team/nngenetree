@@ -5,6 +5,29 @@ All notable changes to NNGeneTree will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.0] - 2026-08-24
+
+### Fixed
+- **Placement Taxonomy**: `placement_results.json`, `placement_results.csv` and `combined_placement_results.json` now use NCBI Entrez taxonomy; previously the taxonomy was guessed from accession prefixes
+- **Tree Statistics**: `tree_stats.tab` lists the input queries only; previously it listed every tree leaf
+- **Taxonomy Assignments**: The OG column in `taxonomy_assignments.txt` is the sample name; previously empty
+- **Entrez Email**: `entrez_email` from `conf/local.config` is exported as `ENTREZ_EMAIL` to tasks
+- **Environment Isolation**: Tasks resolve tools from the repository's `.pixi/envs/default/bin` and unset `MAFFT_BINARIES`; the shell environment of the caller does not affect tasks
+- **Test Database**: `test/db/test_reference.dmnd` is tracked in git; a fresh clone can run `nngenetree test`
+
+### Changed
+- **Sparse Samples**: Samples with fewer than 2 unique DIAMOND subjects are skipped with a log warning; the run continues
+- **Taxonomy Fetch**: NCBI taxonomy is fetched for every BLAST hit in the tree with batched Entrez efetch, not only for the closest neighbors
+- **iTOL Files**: Published to `<sample>/itol/` as `itol_labels.txt`, `itol_branch_colors.txt`, `itol_query_circles.txt` and `itol_colorstrip.txt`
+- **New Parameters**: `min_hits` (default 5), `diamond_sensitivity` (default empty: DIAMOND fast mode), `self_hit_threshold` (default 0.001)
+- **Launcher**: Extra arguments are forwarded to Nextflow, for example `nngenetree my_data local --blast_hits 50 --blast_db /path/to/nr`
+- **Script Interfaces**: `parse_closest_neighbors.py` takes `--subjects` and `--og`; `extract_phylogenetic_neighbors.py` requires `--taxonomy`; `extract_closest_neighbors.py` accepts `--self_hit_threshold`
+
+### Removed
+- `CHECK_BLAST_OUTPUT` step with `check_blast_output.done` and `check_blast_output.log`
+- `bin/assign_bestblastp.py` and `bin/check_blast_output.py`
+- `<input_dir>_output_completion.log`
+
 ## [1.2.0] - 2025-11-29
 
 ### Changed
@@ -236,6 +259,7 @@ This is the first stable release of NNGeneTree with significant improvements to 
 
 ---
 
+[1.3.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.3.0
 [1.2.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.2.0
 [1.1.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.1.0
 [1.0.0]: https://github.com/NeLLi-team/nngenetree/releases/tag/v1.0.0

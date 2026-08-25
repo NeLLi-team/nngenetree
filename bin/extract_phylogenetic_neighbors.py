@@ -6,38 +6,22 @@ excluding self-hits (very low distance) and including taxonomy information.
 import sys
 import json
 import csv
-from pathlib import Path
 from ete3 import Tree
 import argparse
 
-def get_taxonomy_from_accession(accession):
-    """Infer basic taxonomy from accession pattern."""
-    if accession.startswith('AYV'):
-        return "Viruses; Nucleocytoviricota; Hyperionvirus"
-    elif accession.startswith('WP_'):
-        return "Bacteria"
-    elif accession.startswith('XP_'):
-        return "Eukaryota"
-    elif accession.startswith('NP_'):
-        return "Bacteria; RefSeq"
-    elif accession.startswith('YP_'):
-        return "Bacteria; RefSeq"
-    elif accession.startswith('AEF') or accession.startswith('ARF'):
-        return "Bacteria; Pseudomonadota; Gammaproteobacteria"
-    elif accession.startswith('KA'):
-        return "Eukaryota"
-    elif accession.startswith('CA'):
-        return "Bacteria"
-    elif accession.startswith('MD'):
-        return "Bacteria"
-    elif accession.startswith('PBC'):
-        return "Bacteria"
-    elif accession.startswith('MBE') or accession.startswith('MCL'):
-        return "Unknown"
-    else:
-        return "Unknown"
+def load_taxonomy(taxonomy_file):
+    """Load the OG\\tAccession\\tTaxonomy TSV into a dict keyed by accession and version-stripped accession."""
+    taxonomy = {}
+    with open(taxonomy_file) as f:
+        for line in f:
+            parts = line.rstrip('\n').split('\t')
+            if len(parts) < 3 or parts[1] == 'Accession':
+                continue
+            taxonomy[parts[1]] = parts[2]
+            taxonomy[parts[1].split('.')[0]] = parts[2]
+    return taxonomy
 
-def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
+def extract_neighbors(tree_file, query_prefixes, taxonomy_file, output_json, output_csv,
                       num_neighbors=5, self_hit_threshold=0.001):
     """
     Extract top N neighbors for each query sequence in the tree.
@@ -48,6 +32,8 @@ def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
         Path to the tree file
     query_prefixes : list
         List of query prefixes to search for (e.g., ['Hype', 'Klos'])
+    taxonomy_file : str
+        Path to the taxonomy TSV (OG, Accession, Taxonomy)
     output_json : str
         Path to output JSON file with detailed neighbor information
     output_csv : str
@@ -60,6 +46,8 @@ def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
     try:
         # Load tree
         tree = Tree(str(tree_file))
+
+        taxonomy_dict = load_taxonomy(taxonomy_file)
 
         # Find all query sequences
         query_nodes = []
@@ -108,14 +96,15 @@ def extract_neighbors(tree_file, query_prefixes, output_json, output_csv,
                     continue
 
                 # Skip other query genomes
-                if any(neighbor_prefix == p for p in query_prefixes):
+                if any(neighbor_prefix.startswith(p) for p in query_prefixes):
                     continue
 
-                # For sequences with same accession pattern, only skip if distance is very small
-                if neighbor_name.startswith(neighbor_prefix) and dist < self_hit_threshold:
+                # Skip self-hits (very small distance)
+                if dist < self_hit_threshold:
                     continue
 
-                taxonomy = get_taxonomy_from_accession(neighbor_name)
+                taxonomy = taxonomy_dict.get(neighbor_name,
+                                             taxonomy_dict.get(neighbor_name.split('.')[0], 'Unknown'))
 
                 neighbors.append({
                     "id": neighbor_name,
@@ -179,6 +168,8 @@ def main():
     parser.add_argument('--tree', required=True, help='Path to tree file')
     parser.add_argument('--query-prefixes', default='Hype,Klos',
                         help='Comma-separated list of query prefixes')
+    parser.add_argument('--taxonomy', required=True,
+                        help='Taxonomy TSV (OG, Accession, Taxonomy) from parse_closest_neighbors.py')
     parser.add_argument('--output-json', required=True, help='Output JSON file path')
     parser.add_argument('--output-csv', required=True, help='Output CSV file path')
     parser.add_argument('--num-neighbors', type=int, default=5,
@@ -193,6 +184,7 @@ def main():
     success = extract_neighbors(
         args.tree,
         query_prefixes,
+        args.taxonomy,
         args.output_json,
         args.output_csv,
         args.num_neighbors,
@@ -200,7 +192,7 @@ def main():
     )
 
     if success:
-        print(f"✓ Results saved to {args.output_json} and {args.output_csv}")
+        print(f"Results saved to {args.output_json} and {args.output_csv}")
 
         # Show summary
         with open(args.output_json) as f:
