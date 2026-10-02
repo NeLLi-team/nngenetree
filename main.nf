@@ -47,6 +47,12 @@ if (!params.blast_db || params.blast_db == 'null' || !file("${params.blast_db}.d
     """.stripIndent()
 }
 
+// blastdbcmd reads hit sequences from a BLAST protein database at the same
+// prefix (single volume: .pin; multi-volume such as NCBI nr: .pal)
+if (!['pin', 'pal'].any { file("${params.blast_db}.${it}").exists() }) {
+    error "BLAST protein database not found: ${params.blast_db}.pin or ${params.blast_db}.pal. EXTRACT_HITS runs blastdbcmd on it, so it must sit next to ${params.blast_db}.dmnd."
+}
+
 // Print startup banner
 log.info """
 ============================================
@@ -89,10 +95,19 @@ workflow {
     // Step 4: Extract hit sequences from database
     EXTRACT_HITS(unique_subjects_ch)
 
+    // Gate on extraction - skip samples where blastdbcmd returned no sequence,
+    // for example a BLAST database missing at the DIAMOND database prefix
+    extract_gate = EXTRACT_HITS.out.extracted_hits
+        .branch {
+            ok: it[1].size() > 0
+            skip: true
+        }
+    extract_gate.skip.subscribe { log.warn "Skipping ${it[0]}: blastdbcmd extracted no hit sequences from ${params.blast_db}" }
+
     // Step 5: Combine query and hit sequences (with deduplication)
     COMBINE_SEQUENCES(
         input_fasta_ch
-            .join(EXTRACT_HITS.out.extracted_hits)
+            .join(extract_gate.ok)
     )
 
     // Step 6: Align sequences with MAFFT
