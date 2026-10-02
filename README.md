@@ -361,7 +361,7 @@ The pipeline writes results to `<input_dir>_output/`. For each input FASTA file:
     └── itol_colorstrip.txt
 ```
 
-The pipeline skips samples with fewer than 2 unique DIAMOND subjects, logs a warning, and continues with the remaining samples.
+The pipeline skips samples with fewer than 2 unique DIAMOND subjects, logs a warning, and continues with the remaining samples. It does the same for samples where `blastdbcmd` extracts no hit sequence; `extract_hits_errors.log` reports how many of the requested sequences were extracted.
 
 ### Aggregated output
 
@@ -388,6 +388,7 @@ The pipeline skips samples with fewer than 2 unique DIAMOND subjects, logs a war
 | `query_prefixes` | Prefixes for phylogenetic placement | `Hype,Klos` |
 | `num_neighbors_placement` | Neighbors for placement | 5 |
 | `itol_tax_level` | Taxonomy level for iTOL | `class` |
+| `seed` | IQ-TREE random seed | 12345 |
 
 ### Resource configuration
 

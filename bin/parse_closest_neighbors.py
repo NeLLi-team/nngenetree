@@ -9,71 +9,109 @@ For each tree_neighbors.csv file, it adds a new column 'taxonomy' with the NCBI
 taxonomy information for the subject IDs.
 """
 
-import os
-import sys
 import argparse
-import csv
+import os
+import re
+import shutil
+import sys
+import tempfile
+import time
+import traceback
+from collections.abc import Iterator
+from http.client import HTTPException
 from pathlib import Path
-from typing import Iterator, Tuple, Dict, List, Optional, Set
+
 from Bio import Entrez
 from tqdm import tqdm
-import time
-import tempfile
-import shutil
-import re
-import traceback
 
 # Set email for NCBI Entrez (from environment variable or default)
 Entrez.email = os.environ.get('ENTREZ_EMAIL', 'nngenetree-user@example.com')
 
-def fetch_taxonomy_batch(accessions: List[str], batch_size: int = 50) -> Dict[str, str]:
-    """
-    Fetch taxonomy information for a list of accession numbers in batches.
+ENTREZ_ATTEMPTS = 4
+ENTREZ_BACKOFF_S = 15.0
 
-    Parameters
-    ----------
-    accessions : List[str]
-        NCBI protein accession numbers
-    batch_size : int
-        Number of ids per efetch call
+# Network (URLError, timeouts), truncated HTTP responses (IncompleteRead),
+# NCBI error, and XML parse errors from one request
+ENTREZ_ERRORS = (OSError, HTTPException, RuntimeError, ValueError)
 
-    Returns
-    -------
-    Dict[str, str]
-        Mapping of accession -> taxonomy string (or 'Unknown...' on failure)
+
+def fetch_taxonomy_batch(accessions: list[str], batch_size: int = 50) -> dict[str, str]:
+    """Fetch the NCBI taxonomy of protein accessions in batches of efetch calls.
+
+    Args:
+        accessions: NCBI protein accession numbers.
+        batch_size: Number of ids per efetch call.
+
+    Returns:
+        Mapping of accession to taxonomy string, 'Unknown' when NCBI returns
+        no record for an accession.
+
+    Raises:
+        RuntimeError: A batch still failed after ENTREZ_ATTEMPTS tries. A
+            transient NCBI or network failure must not be recorded as an
+            unknown taxonomy.
     """
     taxonomy_assignments = {}
     for start in tqdm(range(0, len(accessions), batch_size), desc="Fetching taxonomy"):
         chunk = accessions[start:start + batch_size]
-        try:
-            handle = Entrez.efetch(db='protein', id=','.join(chunk), rettype='gb', retmode='xml')
-            records = Entrez.read(handle)
-            handle.close()
+        records = efetch_with_retry(chunk)
 
-            # Map returned records to accessions by their accession.version, never by position
-            returned = {}
-            for record in records:
-                acc_ver = record.get('GBSeq_accession-version', '')
-                taxonomy = record.get('GBSeq_taxonomy', '')
-                # Clean up taxonomy string for easier parsing
-                # Replace spaces with underscores in the taxonomy string
-                taxonomy = taxonomy.replace('; ', ';')
-                taxonomy = taxonomy.replace(' ', '_')
-                returned[acc_ver] = taxonomy
-                returned[acc_ver.split('.')[0]] = taxonomy
+        # Map returned records to accessions by their accession.version,
+        # never by position
+        returned = {}
+        for record in records:
+            acc_ver = record.get("GBSeq_accession-version", "")
+            taxonomy = record.get("GBSeq_taxonomy", "")
+            # Clean up taxonomy string for easier parsing
+            # Replace spaces with underscores in the taxonomy string
+            taxonomy = taxonomy.replace("; ", ";")
+            taxonomy = taxonomy.replace(" ", "_")
+            returned[acc_ver] = taxonomy
+            returned[acc_ver.split(".")[0]] = taxonomy
 
-            for accession in chunk:
-                taxonomy_assignments[accession] = (returned.get(accession)
-                                                   or returned.get(accession.split('.')[0])
-                                                   or 'Unknown')
-        except Exception as e:
-            for accession in chunk:
-                taxonomy_assignments[accession] = f"Unknown ({str(e)})"  # If taxonomy lookup fails, return Unknown with error message
+        for accession in chunk:
+            taxonomy_assignments[accession] = (
+                returned.get(accession)
+                or returned.get(accession.split(".")[0])
+                or "Unknown"
+            )
         time.sleep(0.34)  # Rate limit to comply with NCBI's guidelines (3 requests per second)
 
     return taxonomy_assignments
 
-def process_csv_file(file_path: Path) -> List[Dict[str, str]]:
+
+def efetch_with_retry(chunk: list[str]) -> list:
+    """Return the GenBank XML records for one batch, retrying with a growing pause.
+
+    Biopython retries an HTTP 429 at once, without a pause, so a busy NCBI
+    server needs this extra retry loop.
+    """
+    for attempt in range(1, ENTREZ_ATTEMPTS + 1):
+        try:
+            handle = Entrez.efetch(
+                db="protein", id=",".join(chunk), rettype="gb", retmode="xml"
+            )
+            try:
+                return Entrez.read(handle)
+            finally:
+                handle.close()
+        except ENTREZ_ERRORS as err:  # noqa: PERF203  # retry loop around a network call
+            if attempt == ENTREZ_ATTEMPTS:
+                raise RuntimeError(
+                    f"Entrez efetch failed {attempt} times for {len(chunk)} "
+                    f"accessions starting with {chunk[0]}: {err}"
+                ) from err
+            pause_s = ENTREZ_BACKOFF_S * attempt
+            print(
+                f"Entrez efetch attempt {attempt} failed ({err}); "
+                f"retrying in {pause_s:.0f} s",
+                file=sys.stderr,
+            )
+            time.sleep(pause_s)
+    raise AssertionError("unreachable: the loop returns or raises")
+
+
+def process_csv_file(file_path: Path) -> list[dict[str, str]]:  # noqa: C901, PLR0912  # legacy parser, only its annotation changed here
     """
     Process a CSV file and return all rows with subject IDs.
     
@@ -157,7 +195,7 @@ def process_csv_file(file_path: Path) -> List[Dict[str, str]]:
         print(f"Stack trace: {traceback.format_exc()}", file=sys.stderr)
         return []
 
-def process_old_format_file(file_path: Path) -> List[Dict[str, str]]:
+def process_old_format_file(file_path: Path) -> list[dict[str, str]]:
     """
     Process an old format text file and convert to the new CSV format.
     
@@ -207,7 +245,9 @@ def process_old_format_file(file_path: Path) -> List[Dict[str, str]]:
         print(f"Error processing text file {file_path}: {e}", file=sys.stderr)
         return []
 
-def find_and_process_files(base_dir: str = '.') -> Iterator[Tuple[Path, List[Dict[str, str]]]]:
+def find_and_process_files(
+    base_dir: str = ".",
+) -> Iterator[tuple[Path, list[dict[str, str]]]]:
     """
     Find all closest neighbors CSV files and process them.
     
@@ -249,7 +289,7 @@ def find_and_process_files(base_dir: str = '.') -> Iterator[Tuple[Path, List[Dic
     else:
         print(f"Processed {processed_count} CSV files", file=sys.stderr)
 
-def get_unique_accessions(all_rows: List[Dict[str, str]]) -> Set[str]:
+def get_unique_accessions(all_rows: list[dict[str, str]]) -> set[str]:
     """
     Extract all unique subject IDs from the rows.
     
@@ -271,7 +311,7 @@ def get_unique_accessions(all_rows: List[Dict[str, str]]) -> Set[str]:
     print(f"Found {len(accessions)} unique subject IDs", file=sys.stderr)
     return accessions
 
-def append_taxonomy_to_csv(file_path: Path, taxonomy_dict: Dict[str, str]) -> None:
+def append_taxonomy_to_csv(file_path: Path, taxonomy_dict: dict[str, str]) -> None:
     """
     Append taxonomy information to the CSV file.
     
@@ -335,6 +375,19 @@ def append_taxonomy_to_csv(file_path: Path, taxonomy_dict: Dict[str, str]) -> No
         except:
             pass
 
+
+def is_header_only(csv_path: Path) -> bool:
+    """Return True when the neighbor CSV holds its header row and no data rows."""
+    if not csv_path.exists():
+        return False
+    lines = [
+        line
+        for line in csv_path.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
+    return lines == ["query,subject,gene,distance"]
+
+
 def parse_args() -> argparse.Namespace:
     """Parse command line arguments."""
     parser = argparse.ArgumentParser(
@@ -373,7 +426,11 @@ def main():
 
     # Fetch taxonomy for each accession
     print(f"Fetching taxonomy information for {len(unique_accessions)} accessions", file=sys.stderr)
-    taxonomy_assignments = fetch_taxonomy_batch(sorted(unique_accessions))
+    try:
+        taxonomy_assignments = fetch_taxonomy_batch(sorted(unique_accessions))
+    except RuntimeError as err:
+        print(f"Error: {err}", file=sys.stderr)
+        sys.exit(1)
 
     if unique_accessions and all(t.startswith('Unknown') for t in taxonomy_assignments.values()):
         print("Error: taxonomy lookup failed for every accession (Entrez/network failure?)", file=sys.stderr)
@@ -392,7 +449,19 @@ def main():
     print("Appending taxonomy information to CSV files", file=sys.stderr)
     for file_path, rows in find_and_process_files(args.dir):
         append_taxonomy_to_csv(file_path, taxonomy_assignments)
-    
+
+    # The workflow expects this file. A neighbor CSV with a header and no rows
+    # means the tree held no database neighbor (for example, every hit duplicated
+    # a query); write a header-only file then. An error sentinel or a malformed
+    # CSV leaves it missing, so the task fails as before.
+    enhanced_csv = Path(args.dir) / "closest_neighbors_with_taxonomy.csv"
+    neighbor_csv = Path(args.dir) / "closest_neighbors.csv"
+    if not enhanced_csv.exists() and is_header_only(neighbor_csv):
+        enhanced_csv.write_text(
+            "query,subject,gene,distance,taxonomy\n", encoding="utf-8"
+        )
+        print(f"No neighbor rows; wrote header-only {enhanced_csv}", file=sys.stderr)
+
     print("All processing completed successfully", file=sys.stderr)
     
 if __name__ == "__main__":

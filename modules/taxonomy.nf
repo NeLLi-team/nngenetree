@@ -8,6 +8,12 @@ process ASSIGN_TAXONOMY {
     publishDir "${params.output_dir}/${sample_id}", mode: 'copy'
 
     cpus 1
+    // NCBI allows 3 Entrez requests per second per IP without an API key;
+    // one lookup at a time keeps parallel samples under that limit.
+    maxForks 1
+    // Entrez requests have no socket timeout; a stalled connection is killed
+    // here and the task retried instead of blocking the serialized queue.
+    time '30m'
 
     input:
     tuple val(sample_id), path(closest_neighbors), path(unique_subjects)

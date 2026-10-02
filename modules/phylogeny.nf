@@ -24,6 +24,7 @@ process BUILD_TREE {
     iqtree -s ${trimmed_alignment} \\
         -m LG+G4 \\
         -T ${task.cpus} \\
+        --seed ${params.seed} \\
         --prefix final_tree
     """
 }

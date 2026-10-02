@@ -118,7 +118,19 @@ def extract_closest_neighbors(tree_file, query_file, subjects_file, output_file,
         
         # Find all leaf nodes in the tree
         all_leaves = {leaf.name for leaf in tree.get_leaves()}
-        
+
+        # Leaves that are query sequences of any genome, with or without a
+        # query filter. They are never neighbors, so identical copies of a
+        # protein from other query genomes cannot fill the neighbor list.
+        # One leaf per query, resolved like query_nodes below, so a database
+        # leaf that equals a query's ID prefix stays a candidate neighbor.
+        query_leaves = set()
+        for query_id in query_ids:
+            for name in (query_id, query_id.split()[0], query_id.split("|")[0]):
+                if name in all_leaves:
+                    query_leaves.add(name)
+                    break
+
         # Check if query IDs exist in the tree
         query_nodes = {}
         for query_id in query_ids:
@@ -157,7 +169,7 @@ def extract_closest_neighbors(tree_file, query_file, subjects_file, output_file,
             # Get distances to all other leaves
             distances = []
             for leaf in tree.get_leaves():
-                if leaf.name != tree_id:
+                if leaf.name != tree_id and leaf.name not in query_leaves:
                     # Get the first field of the neighbor ID
                     neighbor_prefix = leaf.name.split('|')[0] if '|' in leaf.name else leaf.name
                     

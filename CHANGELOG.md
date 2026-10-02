@@ -4,6 +4,20 @@ All notable changes to NNGeneTree are documented in this file.
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/), and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `closest_neighbors.csv` lists database hits only. Earlier versions also listed query sequences from other genomes, so identical copies of a protein from several query genomes filled the neighbor list and were sent to Entrez.
+- Samples where `blastdbcmd` extracts no hit sequence are skipped with a log warning, like samples with fewer than 2 DIAMOND subjects. Earlier versions built the tree from the queries alone. `extract_hits_errors.log` records how many of the requested sequences were extracted.
+- Each Entrez batch gets up to 4 attempts with a growing pause, and the task fails if all 4 fail. Earlier versions wrote `Unknown` for every accession in a failed batch.
+
+### Changed
+- DIAMOND 2.2.8 or later is required (was 2.1.12). Versions 2.1.15 to 2.1.23 have crash, memory-leak, and hang regressions. DIAMOND 2.2.8 reads existing `.dmnd` files (database format 3). Nextflow's `-resume` cache does not track tool versions, so start a new work directory after this update.
+- IQ-TREE runs with a fixed random seed, set by the new `seed` parameter (default 12345). A rerun with the same thread count on the same CPU type gives the same tree.
+- `ASSIGN_TAXONOMY` runs one sample at a time, because NCBI allows 3 Entrez requests per second per IP without an API key, and stops after 30 minutes so a stalled request is retried.
+- `pixi.lock` uses lock file format 7, which needs Pixi 0.68.0 or later.
+- `nngenetree` stops at startup when no BLAST protein database (`<blast_db>.pin` or `<blast_db>.pal`) sits next to the DIAMOND database.
+
 ## [1.3.0] - 2026-08-24
 
 ### Fixed
